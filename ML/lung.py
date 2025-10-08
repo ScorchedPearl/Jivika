@@ -2,12 +2,14 @@
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from PIL import Image
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
+import cv2
 import cv2
 import torch
 
@@ -62,20 +64,20 @@ data_transforms = transforms.Compose([
 
 
 model = models.resnet18(pretrained=False)
-model.fc = nn.Linear(model.fc.in_features, 4) 
+model.fc = nn.Linear(model.fc.in_features, 3) 
 
-model.load_state_dict(torch.load("Brain_Xray_Classification.pth", map_location=device))
+model.load_state_dict(torch.load("lung_xray_classify.pth", map_location=device))
 model.to(device)
 model.eval()
 
 
-class_names = ['glioma', 'meningioma', 'no_tumor', 'pituitary']
+class_names = ['COVID', 'HEALTHY', 'PNEUMONIA']
 
 # @app.route("/")
 # def home():
 #     return render_template("index.html")
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict_lung", methods=["POST"])
 def predict():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
@@ -108,7 +110,7 @@ def predict():
         cv2.imwrite(cam_image_path, cv2.cvtColor(cam_image_real, cv2.COLOR_RGB2BGR))
         file={
             "prediction": pred_label,
-            "cam_image_url": f"/static/cam_{file.filename}"
+            "cam_image_url": f"/static/lung_cam_{file.filename}"
         }
         print(file)
         return jsonify(file)
