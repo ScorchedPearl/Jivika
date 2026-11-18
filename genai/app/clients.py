@@ -16,6 +16,20 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
 
 openAi_Client = ChatOpenAI(model="gpt-4", temperature=0, api_key=OPENAI_API_KEY)
+
+# Gemini (Google) — selectable alternative to OpenAI.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+gemini_Client = None
+if GEMINI_API_KEY:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    gemini_Client = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0, google_api_key=GEMINI_API_KEY, transport="rest")
+
+# Active chat model used by the graph nodes and title generation.
+# LLM_PROVIDER=gemini | openai (default: gemini when a Gemini key is set, else openai).
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini" if GEMINI_API_KEY else "openai").lower()
+llm_Client = gemini_Client if (LLM_PROVIDER == "gemini" and gemini_Client is not None) else openAi_Client
+
 s3Client = boto3.client(
     "s3",
     region_name=AWS_DEFAULT_REGION,

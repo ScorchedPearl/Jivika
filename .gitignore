@@ -1,1 +1,5 @@
 .env
+# Python virtualenvs
+ML/.venv/
+genai/.venv/
+__pycache__/

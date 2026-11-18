@@ -55,6 +55,12 @@ const Header = () => {
             </nav>
 
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/lab')}
+                className="border border-primary text-primary font-semibold px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors"
+              >
+                AI Lab ✦
+              </button>
               <ThemeSwitcher />
 
               {isLoggedIn ? (
@@ -140,6 +146,16 @@ const Header = () => {
                   </div>
                 ))}
               </nav>
+
+              <button
+                onClick={() => {
+                  router.push('/lab');
+                  setIsOpen(false);
+                }}
+                className="border border-primary text-primary font-semibold px-4 py-2 rounded-lg text-left"
+              >
+                AI Lab ✦
+              </button>
 
               <div className="mt-4">
                 <ThemeSwitcher />

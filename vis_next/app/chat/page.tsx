@@ -49,11 +49,13 @@ export default function ChatPage() {
   const [selectedTag, setSelectedTag] = useState<"heart" | "xray" | "diabetes" | "symptoms" | "bmi" | "bloodpressure" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const handleSendMessage = async () => {
     if (!message.trim() && (!selectedFiles || selectedFiles.length === 0)) return;
-  
+
     setIsLoading(true);
+    setSendError(null);
   
     try {
       let activeSessionId = sessionId;
@@ -102,10 +104,27 @@ export default function ChatPage() {
       );
   
       console.log("💬 Message sent:", messageResponse.data);
-  
+
+      // The endpoint streams NDJSON; surface any error chunk instead of failing silently.
+      const raw = typeof messageResponse.data === "string" ? messageResponse.data : JSON.stringify(messageResponse.data);
+      const streamError = raw
+        .split("\n")
+        .filter((l: string) => l.trim())
+        .map((l: string) => { try { return JSON.parse(l); } catch { return null; } })
+        .find((c: any) => c?.type === "error");
+      if (streamError) {
+        setSendError(`The assistant couldn't reply: ${streamError.content}`);
+        return;
+      }
+
       router.push(`/chat/${activeSessionId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending message:", error);
+      setSendError(
+        error?.response
+          ? `Request failed (${error.response.status}): ${error.response.data?.detail ?? "server error"}`
+          : "Can't reach the chat service. Is the GenAI server running on port 8000?"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -244,6 +263,11 @@ export default function ChatPage() {
                 )}
               </Button>
             </div>
+            {sendError && (
+              <p role="alert" className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2 [overflow-wrap:anywhere]">
+                {sendError}
+              </p>
+            )}
 
             {/* File input and selected files list (separate from Textarea to avoid passing unknown props)
             <div className="flex items-center justify-between gap-4 mt-2">

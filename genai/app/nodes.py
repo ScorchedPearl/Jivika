@@ -3,7 +3,7 @@ import uuid
 import requests
 from langchain_core.messages import SystemMessage, AIMessage
 from .state import ChatStateMain
-from .clients import openAi_Client, s3Client, AWS_DEFAULT_REGION, BUCKET_NAME, rich , REGION
+from .clients import llm_Client, s3Client, AWS_DEFAULT_REGION, BUCKET_NAME, rich , REGION
 from .prompts import (
     brainXrayPrompt, clinicalPrompt, heartPrompt,
     woundPrompt, lungXrayPrompt
@@ -16,7 +16,7 @@ def HeartClinicalNode(state: ChatStateMain) -> ChatStateMain:
     print("🫀 Heart Clinical Node - Prediction:", prediction)
     messages = state.get("messages") or []
     all_messages = messages[-3:] if len(messages) >= 3 else messages
-    response = openAi_Client.invoke([system_message] + all_messages)
+    response = llm_Client.invoke([system_message] + all_messages)
     return {"messages": AIMessage(response.content)}
 
 
@@ -27,7 +27,7 @@ def BrainXRayClinicalNode(state: ChatStateMain) -> ChatStateMain:
     print("🧠 Brain X-Ray Clinical Node - Prediction:", prediction)
     messages = state.get("messages") or []
     all_messages = messages[-3:] if len(messages) >= 3 else messages
-    response = openAi_Client.invoke([system_message] + all_messages)
+    response = llm_Client.invoke([system_message] + all_messages)
     return {"messages": AIMessage(response.content)}
 
 def WoundClinicalNode(state: ChatStateMain) -> ChatStateMain:
@@ -37,7 +37,7 @@ def WoundClinicalNode(state: ChatStateMain) -> ChatStateMain:
     print("🩺 Wound Clinical Node - Prediction:", prediction)
     messages = state.get("messages") or []
     all_messages = messages[-3:] if len(messages) >= 3 else messages
-    response = openAi_Client.invoke([system_message] + all_messages)
+    response = llm_Client.invoke([system_message] + all_messages)
     return {"messages": AIMessage(response.content)}
 
 def ChestClinicalNode(state: ChatStateMain) -> ChatStateMain:
@@ -47,7 +47,7 @@ def ChestClinicalNode(state: ChatStateMain) -> ChatStateMain:
     print("🫁 Chest X-Ray Clinical Node - Prediction:", prediction)
     messages = state.get("messages") or []
     all_messages = messages[-3:] if len(messages) >= 3 else messages
-    response = openAi_Client.invoke([system_message] + all_messages)
+    response = llm_Client.invoke([system_message] + all_messages)
     return {"messages": AIMessage(response.content)}
 
 def xrayClassifierNode(state: ChatStateMain) -> ChatStateMain:
@@ -230,5 +230,5 @@ def clinicalNode(state: ChatStateMain) -> ChatStateMain:
     system_message = SystemMessage(clinicalPrompt)
     messages = state.get("messages") or []
     all_messages = messages[-3:] if len(messages) >= 3 else messages
-    response = openAi_Client.invoke([system_message] + all_messages)
+    response = llm_Client.invoke([system_message] + all_messages)
     return {"messages": AIMessage(response.content)}

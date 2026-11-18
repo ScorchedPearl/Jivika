@@ -13,7 +13,7 @@ from .schemas import (
 )
 from app.db import get_db, SessionLocal
 from app import crud, models
-from app.clients import openAi_Client
+from app.clients import llm_Client
 
 # Use environment variable for backend URL, defaulting to Docker service name
 # BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:2706/api/v1/user/current-user")
@@ -250,7 +250,7 @@ def _generate_title_task(session_id: UUID, messages: List[models.Message]):
         Title:"""
 
         system_message = SystemMessage(content=prompt)
-        response = openAi_Client.invoke([system_message])
+        response = llm_Client.invoke([system_message])
         
         new_title = response.content.strip().strip('"') 
         
