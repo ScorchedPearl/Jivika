@@ -59,6 +59,7 @@ Deep learning modules built with **PyTorch** and **Scikit-learn**:
 - **Doctors**: Manage profiles, appointments, and patient data  
 - **Patients**: Book appointments, view doctors, and manage health information  
 
+#
 ### 🔐 Secure Authentication
 - **Google OAuth 2.0**  
 - **OTP-based Login**  
