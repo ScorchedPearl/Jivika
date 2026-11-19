@@ -1,0 +1,13 @@
+flask
+flask-cors
+numpy
+pillow
+matplotlib
+opencv-python
+torch
+torchvision
+grad-cam
+joblib
+xgboost
+# Heart_model.pkl was pickled with this version; keep it pinned so it unpickles cleanly
+scikit-learn==1.7.2

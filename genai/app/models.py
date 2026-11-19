@@ -13,7 +13,7 @@ class Session(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False, default="New Chat")
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     user = relationship("User", back_populates="sessions")
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
 
@@ -23,7 +23,7 @@ class Message(Base):
     session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=False)
     role = Column(String, nullable=False) 
     content = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     
     session = relationship("Session", back_populates="messages")
 

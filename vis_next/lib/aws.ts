@@ -7,11 +7,35 @@ export interface UploadResult {
   error?: string;
 }
 
-export const uploadImageToS3 = async (file: File): Promise<UploadResult> => {
+const MAX_UPLOAD_SIDE = 1600;
+
+// Phone photos are far larger than the models need, so shrink them before uploading
+const shrinkImage = async (file: File): Promise<File> => {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
   try {
-    if (!file) {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, MAX_UPLOAD_SIDE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size < 1024 * 1024) return file;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file;
+  }
+};
+
+export const uploadImageToS3 = async (original: File): Promise<UploadResult> => {
+  try {
+    if (!original) {
       return { success: false, error: 'No file provided' };
     }
+    const file = await shrinkImage(original);
 
     // Create FormData for file upload
     const formData = new FormData();

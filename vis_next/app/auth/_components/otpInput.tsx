@@ -43,7 +43,7 @@ export function OTPInput({ length, onComplete }: OTPInputProps) {
           value={data}
           onChange={(e) => handleChange(e.target, index)}
           onKeyDown={(e) => handleKeyDown(e, index)}
-          className="w-12 h-12 text-center text-2xl bg-background-tertiary border border-border text-foreground focus:border-accent focus:ring-accent/20 transition-all duration-300"
+          className="h-12 w-11 px-0 text-center font-mono text-xl"
           aria-label={`Digit ${index + 1} of OTP`}
         />
       ))}

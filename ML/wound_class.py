@@ -63,7 +63,7 @@ data_transforms = transforms.Compose([
 ])
 
 
-model = models.resnet18(pretrained=True)
+model = models.resnet18()
 model.fc = nn.Sequential(
         nn.Dropout(0.300665),
         nn.Linear(model.fc.in_features, 7)  # assuming 7 classes

@@ -1,23 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import ExploreHeader from "./_components/explore_Header";
+import { useState, useMemo, useEffect } from "react";
+import { Hospital, LocateFixed, MapPin, Search, Star } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { cn } from "@/lib/utils";
 import { MapProvider, useMap } from "../context/MapContext";
 import { MapDisplay } from "./_components/maps";
-import { motion } from "framer-motion";
-import { Search, MapPin, Star, Hospital, ChevronUp, LogOut, User, ChevronLeft, ChevronRight } from "lucide-react";
-import clsx from "clsx";
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { getAuthToken, removeAuthToken } from '@/lib/auth-utils';
-import Link from 'next/link';
+import { SiteHeader } from "../components/Site/SiteHeader";
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -31,34 +20,13 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function HospitalSidebar() {
-  const { places, userLocation, selectPlace, selectedPlace } = useMap();
+function HospitalList() {
+  const { places, userLocation, selectPlace, selectedPlace, status, locate } = useMap();
   const [searchQuery, setSearchQuery] = useState("");
-  const [user, setUser] = useState<any>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-    
-    useEffect(() => {
-      const fetchUser = async () => {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/user/current-user`, {
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        })
-        if (res.ok) {
-          const data = await res.json()
-          console.log("Fetched user:", data)
-          setUser(data)
-        } else {
-          console.error("Failed to fetch user:", res.status)
-        }
-      }
-      fetchUser()
-    }, [])
 
-  const handleLogout = () => {
-    removeAuthToken()
-    window.location.href = "/auth" 
-  }
+  useEffect(() => {
+    locate();
+  }, [locate]);
 
   const hospitals = useMemo(() => {
     if (!places || !userLocation) return [];
@@ -81,236 +49,80 @@ function HospitalSidebar() {
       .sort((a: any, b: any) => parseFloat(a.distance) - parseFloat(b.distance));
   }, [places, userLocation, searchQuery]);
 
-  if (isCollapsed) {
-    return (
-      <motion.aside
-        initial={{ x: -50, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 80 }}
-        className="w-16 flex flex-col bg-background-secondary/60 backdrop-blur-lg border border-border rounded-2xl shadow-lg p-2"
-        style={{ height: "calc(100vh - 96px)" }} 
-      >
-        <div className="flex justify-center mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCollapsed(false)}
-            className="h-10 w-10 text-foreground hover:bg-accent"
-          >
-            <ChevronRight size={20} />
-          </Button>
-        </div>
-
-        <div className="flex justify-center mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-10 w-10 text-foreground hover:bg-accent"
-          >
-            <Search size={18} />
-          </Button>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center space-y-2">
-          {hospitals.slice(0, 3).map((h: any, i: number) => (
-            <Button
-              key={h.place_id || i}
-              variant="ghost"
-              size="sm"
-              onClick={() => selectPlace(h)}
-              className={`h-10 w-10 ${
-                selectedPlace?.place_id === h.place_id
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground hover:bg-accent"
-              }`}
-            >
-              <Hospital size={16} />
-            </Button>
-          ))}
-        </div>
-
-        <div className="mt-auto flex justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-10 w-10 text-foreground hover:bg-accent"
-              >
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={user?.profilePhoto} alt={user?.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {user?.name?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="right" className="w-[320px]">
-              <DropdownMenuItem asChild>
-                <Link href="/profile" className="flex items-center gap-2 cursor-pointer h-10">
-                  <User size={16} />
-                  View Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-red-700 h-10">
-                <LogOut size={16} />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </motion.aside>
-    );
-  }
-
   return (
-    <motion.aside
-      initial={{ x: -50, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 80 }}
-      className="xl:w-[350px] w-full flex flex-col bg-background-secondary/60 backdrop-blur-lg border border-border rounded-2xl shadow-lg p-5"
-      style={{ height: "calc(100vh - 96px)" }} 
-    >
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 text-foreground-muted" size={18} />
+    <aside className="flex min-h-0 flex-col rounded-2xl border border-border bg-card/60 lg:w-[360px] lg:shrink-0">
+      <div className="border-b border-border p-5">
+        <p className="font-mono text-xs tracking-wider text-brand uppercase">Hospitals</p>
+        <h1 className="mt-2 font-serif text-2xl text-foreground">Care near you</h1>
+        <div className="relative mt-4">
+          <Search size={15} className="absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
-            type="text"
-            placeholder="Search hospitals..."
+            type="search"
+            placeholder="Search hospitals"
+            aria-label="Search hospitals"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground-muted focus:ring-2 focus:ring-primary transition"
+            className="w-full rounded-full border border-border bg-background py-2 pr-4 pl-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--brand-ink)] focus:outline-none focus:ring-[3px] focus:ring-[var(--brand-tint)]"
           />
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(true)}
-          className="h-8 w-8 text-foreground hover:bg-accent"
-        >
-          <ChevronLeft size={16} />
-        </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {hospitals.length > 0 ? (
           hospitals.map((h: any, i: number) => (
-            <motion.div
+            <button
               key={h.place_id || i}
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 200 }}
+              type="button"
               onClick={() => selectPlace(h)}
-              className={clsx(
-                "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition",
+              className={cn(
+                "flex w-full items-start gap-3 rounded-xl border p-3 text-left transition",
                 selectedPlace?.place_id === h.place_id
-                  ? "bg-primary/10 border-primary"
-                  : "bg-background/60 border-border hover:shadow-md"
+                  ? "border-[var(--brand-line)] bg-brand-tint"
+                  : "border-transparent hover:bg-surface",
               )}
             >
-              <div className="w-12 h-12 rounded-full bg-linear-to-tr from-primary/40 to-primary/10 flex items-center justify-center">
-                <Hospital className="text-primary" size={20} />
-              </div>
-
-              <div className="flex-1">
-                <p className="font-medium text-foreground leading-tight">{h.name}</p>
-                <p className="text-sm text-foreground-muted">{h.vicinity}</p>
-                <div className="flex items-center gap-2 mt-1 text-sm text-foreground-muted">
-                  <MapPin size={14} />
-                  <span>{h.distance} km</span>
-                  {h.rating && (
-                    <>
-                      <Star size={14} className="text-yellow-400" />
-                      <span>{h.rating}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </motion.div>
+              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
+                <Hospital size={17} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium text-foreground">{h.name}</span>
+                <span className="block truncate text-sm text-muted-foreground">{h.vicinity}</span>
+                <span className="mt-1 flex items-center gap-3 font-mono text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><MapPin size={12} /> {h.distance} km</span>
+                  {h.rating && <span className="flex items-center gap-1"><Star size={12} /> {h.rating}</span>}
+                </span>
+              </span>
+            </button>
           ))
         ) : (
-          <p className="text-center text-foreground-muted text-sm mt-4">
-            {userLocation ? "No hospitals found nearby." : "Fetching location..."}
-          </p>
+          <div className="flex flex-col items-center px-4 py-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              {userLocation && searchQuery ? "No hospitals match that search." : status}
+            </p>
+            {!userLocation && (
+              <Button variant="outline" size="sm" className="mt-4" onClick={locate}>
+                <LocateFixed /> Use my location
+              </Button>
+            )}
+          </div>
         )}
       </div>
-      <div className="mt-auto border-t border-border pt-6 pb-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-between gap-3 text-foreground hover:bg-accent h-16 px-4"
-            >
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 border border-border">
-                  <AvatarImage src={user?.profilePhoto} alt={user?.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                    {user?.name?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-medium truncate max-w-[140px]">
-                    {user?.name || "Unnamed User"}
-                  </span>
-                  <span className="text-xs text-foreground-muted truncate max-w-[140px]">
-                    {user?.email || "user@example.com"}
-                  </span>
-                </div>
-              </div>
-              <ChevronUp size={16} className="shrink-0" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="w-[320px] xl:w-[330px]">
-            <DropdownMenuItem asChild>
-              <Link href="/profile" className="flex items-center gap-2 cursor-pointer h-10">
-                <User size={16} />
-                View Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-red-700 h-10">
-              <LogOut size={16} />
-              Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </motion.aside>
+    </aside>
   );
 }
 
 export default function Page() {
   return (
-    <>
-      <ExploreHeader 
-        title="Jivika"
-        subtitle="Explore Hospitals"
-        logoSrc="/images/logo.png"
-        ctaLabel="Chat"
-        ctaHref="/chat"
-        rightSlot={
-          <nav className="flex items-center gap-4 ml-4">
-            <Link href="/chat" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Chat</Link>
-            <Link href="/explore" className="text-sm font-medium text-primary underline-offset-4 hover:underline">Explore</Link>
-            <Link href="/news" className="text-sm font-medium text-foreground hover:text-primary transition-colors">News</Link>
-          </nav>
-        }
-      />
+    <div className="flex h-dvh flex-col">
+      <SiteHeader />
       <MapProvider>
-        <div className="relative w-full flex flex-col xl:flex-row gap-6 px-6 bg-background min-h-[calc(100vh-96px)]">
-          <HospitalSidebar />
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            className="flex-1 rounded-2xl overflow-hidden shadow-2xl border border-border"
-            style={{ height: "calc(100vh - 96px)" }} 
-          >
+        <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-2 lg:flex-row">
+          <HospitalList />
+          <div className="min-h-64 flex-1 overflow-hidden rounded-2xl border border-border">
             <MapDisplay />
-          </motion.div>
-        </div>
+          </div>
+        </main>
       </MapProvider>
-    </>
+    </div>
   );
 }

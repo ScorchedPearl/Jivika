@@ -54,15 +54,15 @@ Can you help me understand what this might indicate and what steps I should take
   if (!isOpen) return null;
 
   return (
-    <div className="p-5 border rounded-xl bg-card shadow-lg animate-in fade-in-0 slide-in-from-top-4 duration-300">
+    <div className="max-h-[85dvh] animate-rise overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Symptom Checker</h3>
+          <h3 className="font-serif text-2xl text-foreground">Symptom Checker</h3>
           <p className="text-sm text-muted-foreground">
             Describe your symptoms for preliminary assessment
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleCancel}>
+        <Button variant="ghost" size="icon" aria-label="Close" onClick={handleCancel}>
           <X size={18} />
         </Button>
       </div>

@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Phone } from "lucide-react";
+import { ArrowLeft, Hospital, Loader2 } from "lucide-react";
 import axios from "axios";
-import { ModernButton } from "../_components/mordern-button";
-import { GlassCard } from "../_components/glass-card";
-import { GlassAlert } from "../_components/glass-alert";
-import ExploreHeader from "../../explore/_components/explore_Header";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Container } from "../../components/Site/Container";
+import { EmptyState } from "../../components/Site/EmptyState";
+import { LinkButton } from "../../components/Site/LinkButton";
+import { Field, FormAlert, inputClass } from "../../components/Site/form";
+import { SiteShell } from "../../components/Site/SiteShell";
 
 interface Doctor {
   id: string;
@@ -40,8 +43,8 @@ export default function DoctorBookingPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // ✅ Load doctor details
   useEffect(() => {
     const loadDoctor = async () => {
       try {
@@ -61,7 +64,6 @@ export default function DoctorBookingPage() {
     loadDoctor();
   }, [id]);
 
-  // ✅ Handle input change
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -69,16 +71,11 @@ export default function DoctorBookingPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    if (!formData.date || !formData.time) {
-      alert("Please select a valid date and time.");
-      return;
-    }
-
-    // ✅ LocalDateTime expected → send without timezone
+    // LocalDateTime expected, so send without a timezone
     const appointmentTime = `${formData.date}T${formData.time}:00`;
 
     setSubmitting(true);
@@ -87,7 +84,7 @@ export default function DoctorBookingPage() {
       const payload = {
         doctorId: doctor?.id,
         description: formData.problem.trim(),
-        appointmentTime, // exact LocalDateTime format
+        appointmentTime,
       };
 
       await axios.post(
@@ -97,10 +94,10 @@ export default function DoctorBookingPage() {
       );
 
       setSubmitted(true);
-      setTimeout(() => router.push("/doctors"), 2000);
+      setTimeout(() => router.push("/profile"), 1500);
     } catch (err) {
       console.error("Error booking appointment:", err);
-      alert("Failed to book appointment. Please try again.");
+      setError("We couldn't send your request. Make sure you're signed in, then try again.");
     } finally {
       setSubmitting(false);
     }
@@ -108,174 +105,96 @@ export default function DoctorBookingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-lg">
-        Loading doctor details...
-      </div>
+      <SiteShell footer={false}>
+        <div className="flex justify-center py-32 text-muted-foreground">
+          <Loader2 className="animate-spin" size={22} />
+        </div>
+      </SiteShell>
     );
   }
 
   if (!doctor) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <p className="text-lg text-muted-foreground mb-4">Doctor not found</p>
-        <ModernButton onClick={() => router.push("/doctors")}>
-          Back to Doctors
-        </ModernButton>
-      </main>
+      <SiteShell footer={false}>
+        <Container className="py-16">
+          <EmptyState title="Doctor not found" body="This profile may have been removed.">
+            <LinkButton href="/doctors">Back to doctors</LinkButton>
+          </EmptyState>
+        </Container>
+      </SiteShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <ExploreHeader
-        title="Book Appointment"
-        subtitle={`Consult ${doctor.name}`}
-        logoSrc="/images/logo.png"
-        ctaLabel="Chat"
-        ctaHref="/chat"
-      />
+    <SiteShell>
+      <section className="-mt-16 bg-glow pt-16">
+        <Container className="animate-rise pt-10">
+          <Link href="/doctors" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft size={14} /> All doctors
+          </Link>
 
-      <main className="min-h-screen bg-linear-to-br from-background via-primary/5 to-background p-4 md:p-6">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GlassCard className="md:col-span-1 text-center">
-            {doctor.profilePhoto ? (
-              <img
-                src={doctor.profilePhoto}
-                alt={doctor.name}
-                className="w-24 h-24 rounded-2xl mx-auto mb-4 object-cover"
-              />
-            ) : (
-              <div className="w-24 h-24 rounded-2xl mx-auto mb-4 bg-muted flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-10 h-10 text-muted-foreground"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 
-                    1.79-4 4 1.79 4 4 4zm0 2c-3.314 0-6 
-                    2.686-6 6h12c0-3.314-2.686-6-6-6z"
-                  />
-                </svg>
-              </div>
-            )}
-
-            <h2 className="text-xl font-bold">{doctor.name}</h2>
-            {doctor.hospital && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {doctor.hospital}
+          <div className="mt-6 grid items-start gap-8 lg:grid-cols-[1fr_1.5fr] lg:gap-14">
+            <div>
+              <p className="font-mono text-xs tracking-wider text-brand uppercase">Book an appointment</p>
+              <h1 className="mt-3 font-serif text-4xl leading-[1.1] tracking-tight text-foreground sm:text-5xl">{doctor.name}</h1>
+              <p className="mt-3 flex items-center gap-2 text-muted-foreground">
+                <Hospital size={16} />
+                {doctor.hospital || "Independent"}
               </p>
-            )}
-            <p className="text-sm mt-2 text-primary font-semibold">
-              {doctor.role}
-            </p>
-          </GlassCard>
+              <p className="mt-6 max-w-sm leading-relaxed text-muted-foreground">
+                Send a request with a time that suits you. It will show as pending on your profile until it&apos;s confirmed.
+              </p>
+            </div>
 
-          {/* Booking Form */}
-          <GlassCard className="md:col-span-2">
-            <h3 className="text-2xl font-bold mb-6">Book Appointment</h3>
-
-            {submitted && (
-              <GlassAlert variant="success" title="Success!" className="mb-6">
-                Appointment booked successfully. Redirecting...
-              </GlassAlert>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Full Name
-                </label>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter your full name"
-                  required
-                  className="w-full glass-sm px-4 py-3 focus:ring-2 focus:ring-primary/50"
-                />
+            <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border bg-card/80 p-6 sm:p-8">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Full name">
+                  <input name="name" value={formData.name} onChange={handleChange} autoComplete="name" required className={inputClass} />
+                </Field>
+                <Field label="Phone number">
+                  <input name="phone" type="tel" value={formData.phone} onChange={handleChange} autoComplete="tel" required className={inputClass} />
+                </Field>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Phone Number
-                </label>
-                <div className="flex gap-2">
-                  <Phone className="w-10 h-10 p-2.5 text-muted-foreground shrink-0" />
-                  <input
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="Enter your phone number"
-                    required
-                    className="flex-1 glass-sm px-4 py-3 focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Problem Description
-                </label>
+              <Field label="What's the problem?">
                 <textarea
                   name="problem"
                   value={formData.problem}
                   onChange={handleChange}
-                  placeholder="Describe your symptoms"
-                  rows={3}
+                  placeholder="Describe your symptoms and how long you've had them"
+                  rows={4}
                   required
-                  className="w-full glass-sm px-4 py-3 focus:ring-2 focus:ring-primary/50 resize-none"
+                  className={`${inputClass} resize-none`}
                 />
-              </div>
+              </Field>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2">
-                    Preferred Date
-                  </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Preferred date">
                   <input
                     type="date"
                     name="date"
                     value={formData.date}
-                    min={new Date().toISOString().split("T")[0]} 
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={handleChange}
                     required
-                    className="w-full glass-sm px-4 py-3 focus:ring-2 focus:ring-primary/50"
+                    className={inputClass}
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold mb-2">
-                    Preferred Time
-                  </label>
-                  <input
-                    type="time"
-                    name="time"
-                    value={formData.time}
-                    onChange={handleChange}
-                    required
-                    className="w-full glass-sm px-4 py-3 focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
+                </Field>
+                <Field label="Preferred time">
+                  <input type="time" name="time" value={formData.time} onChange={handleChange} required className={inputClass} />
+                </Field>
               </div>
 
-              <ModernButton
-                type="submit"
-                variant="primary"
-                className="w-full mt-6"
-              >
-                {submitting ? "Booking..." : "Confirm Appointment"}
-              </ModernButton>
+              {error && <FormAlert>{error}</FormAlert>}
+              {submitted && <FormAlert tone="success">Request sent. Taking you to your profile...</FormAlert>}
+
+              <Button type="submit" className="w-full" disabled={submitting || submitted}>
+                {submitting ? "Sending..." : "Request appointment"}
+              </Button>
             </form>
-          </GlassCard>
-        </div>
-      </main>
-    </div>
+          </div>
+        </Container>
+      </section>
+    </SiteShell>
   );
 }

@@ -1,0 +1,111 @@
+{
+  "features": [
+    "Age",
+    "Sex",
+    "ChestPainType",
+    "RestingBP",
+    "Cholesterol",
+    "FastingBS",
+    "RestingECG",
+    "MaxHR",
+    "ExerciseAngina",
+    "Oldpeak",
+    "ST_Slope"
+  ],
+  "calibration": {
+    "a": 0.852913448515515,
+    "b": 0.04313830026029578
+  },
+  "people": 918,
+  "base_rate": 0.5534,
+  "metrics": {
+    "full": {
+      "auc": 0.9199,
+      "accuracy": 0.8638,
+      "sensitivity": 0.8957,
+      "specificity": 0.8244,
+      "brier": 0.1043,
+      "calibration": [
+        {
+          "predicted": 0.029,
+          "observed": 0.038
+        },
+        {
+          "predicted": 0.201,
+          "observed": 0.179
+        },
+        {
+          "predicted": 0.67,
+          "observed": 0.717
+        },
+        {
+          "predicted": 0.897,
+          "observed": 0.896
+        },
+        {
+          "predicted": 0.972,
+          "observed": 0.94
+        }
+      ]
+    },
+    "no_stress_test": {
+      "auc": 0.8453,
+      "accuracy": 0.7821,
+      "sensitivity": 0.8563,
+      "specificity": 0.6902,
+      "brier": 0.1557,
+      "calibration": [
+        {
+          "predicted": 0.1,
+          "observed": 0.087
+        },
+        {
+          "predicted": 0.361,
+          "observed": 0.353
+        },
+        {
+          "predicted": 0.648,
+          "observed": 0.658
+        },
+        {
+          "predicted": 0.784,
+          "observed": 0.77
+        },
+        {
+          "predicted": 0.903,
+          "observed": 0.902
+        }
+      ]
+    },
+    "basics_only": {
+      "auc": 0.837,
+      "accuracy": 0.7865,
+      "sensitivity": 0.8484,
+      "specificity": 0.7098,
+      "brier": 0.157,
+      "calibration": [
+        {
+          "predicted": 0.103,
+          "observed": 0.082
+        },
+        {
+          "predicted": 0.355,
+          "observed": 0.337
+        },
+        {
+          "predicted": 0.64,
+          "observed": 0.679
+        },
+        {
+          "predicted": 0.786,
+          "observed": 0.836
+        },
+        {
+          "predicted": 0.861,
+          "observed": 0.836
+        }
+      ]
+    }
+  },
+  "source": "Heart Failure Prediction dataset (fedesoriano): 918 patients from five hospital studies."
+}

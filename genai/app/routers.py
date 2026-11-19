@@ -1,35 +1,28 @@
 from typing import Literal
 from .state import ChatStateMain
+from .nodes import FORM_CHECKS
 from langgraph.graph import StateGraph, START, END
 
-def startRouter(state: ChatStateMain) -> Literal['xrayClassifierNode', 'HeartNode', 'clinicalNode']:
+def startRouter(state: ChatStateMain) -> Literal['imageAnalysisNode', 'HeartNode', 'healthCheckNode', 'clinicalNode']:
     imageUrl = state.get("imageURL")
-    request = state.get("request")
-    if(request):
-        request = request.lower()
+    request = (state.get("request") or "").lower()
     print("🚦 Start Router - imageURL:", imageUrl, "request:", request)
-    if imageUrl or "xray" in request:
-        return "xrayClassifierNode"
+    if imageUrl:
+        return "imageAnalysisNode"
     elif "heart" in request:
         return "HeartNode"
+    elif request in FORM_CHECKS and state.get("features"):
+        return "healthCheckNode"
     else:
         return "clinicalNode"
 
 
-
-def xrayClassifier(state: ChatStateMain) -> Literal["BrainXRayNode", "ChestXRayNode", "WoundNode", END]:
-    prediction = state.get("prediction")
-    print("🔍 xrayClassifierNode prediction:", prediction)
-    if not prediction:
-        return "END"
-    prediction = prediction.lower()
-    if "brain" in prediction:
-        return "BrainXRayNode"
-    elif "lung" in prediction:
-        return "ChestXRayNode"
-    elif "wound" in prediction:
-        return "WoundNode"
-    else:
-        return END
+def afterImageAnalysis(state: ChatStateMain) -> Literal["explainNode", "unreadableImageNode"]:
+    analysis = state.get("analysis") or {}
+    print("🔍 Image analysis:", analysis.get("kind"), analysis.get("prediction"), analysis.get("confidence"))
+    return "explainNode" if analysis.get("supported") else "unreadableImageNode"
 
 
+def afterHealthCheck(state: ChatStateMain) -> Literal["explainNode", "clinicalNode"]:
+    # Without a usable result, fall back to a normal answer from the message itself
+    return "explainNode" if (state.get("analysis") or {}).get("supported") else "clinicalNode"

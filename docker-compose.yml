@@ -29,12 +29,12 @@ services:
       DB_USERNAME: healthuser
       DB_PASSWORD: healthpass
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_MAIL: ${SMTP_MAIL}
-      APP_PASSWORD: ${APP_PASSWORD}
-      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      SMTP_MAIL: ${SMTP_MAIL:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       SPRING_PROFILES_ACTIVE: docker
     ports:
       - "2706:2706"
@@ -45,6 +45,12 @@ services:
       - health_network
     volumes:
       - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/2706"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
     restart: unless-stopped
 
   genai:
@@ -60,21 +66,90 @@ services:
       PSQL_DATABASE: healthdb
       PSQL_SSLMODE: disable
       DATABASE_URL: postgresql://healthuser:healthpass@postgres:5432/healthdb
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      # genai refuses to boot with no key; chat replies need a real one in .env
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-set}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       BACKEND_URL: http://backend:2706/api/v1/user/current-user
+      ML_SERVICE_URL: http://ml:5000
+      IMAGE_TYPE_CHECK: ${IMAGE_TYPE_CHECK:-on}
       LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
+      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY:-}
       LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-health-genai}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      ml:
+        condition: service_healthy
     networks:
       - health_network
     volumes:
       - genai_logs:/app/logs
     restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./vis_next
+      dockerfile: Dockerfile
+      args:
+        # These run in the browser, so they use the host's published ports
+        NEXT_PUBLIC_BACKEND_URL: http://localhost:2706
+        NEXT_PUBLIC_FASTAPI_BACKEND_URL: http://localhost:8000
+    container_name: health_frontend
+    environment:
+      GNEWS_API_KEY: ${GNEWS_API_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-health-pearl}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+      - genai
+    networks:
+      - health_network
+    restart: unless-stopped
+
+  ml:
+    image: jivika-ml
+    build:
+      context: ./ML
+      dockerfile: Dockerfile
+    container_name: health_ml
+    environment:
+      ML_APP: service
+      OMP_NUM_THREADS: 4
+    ports:
+      - "5001:5000"
+    networks:
+      - health_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  seed:
+    image: curlimages/curl:8.11.1
+    container_name: health_seed
+    entrypoint: ["sh", "/seed/demo-users.sh"]
+    volumes:
+      - ./seed:/seed:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - health_network
+    restart: "no"
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: health_pgadmin

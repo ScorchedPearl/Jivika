@@ -32,10 +32,12 @@ class ChatRequest(BaseModel):
     content: str
     imageURL: Optional[str] = None
     tag: Optional[str] = None
+    # Structured inputs from a health-check form
+    features: Optional[dict] = None
 
 class ChatResponseChunk(BaseModel):
     """A single chunk of the streaming response."""
-    type: Literal["message", "prediction", "error", "image"]
+    type: Literal["message", "prediction", "error", "image", "status", "analysis"]
     content: str
     
 class SessionUpdate(BaseModel):

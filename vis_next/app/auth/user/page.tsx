@@ -1,12 +1,17 @@
 "use client";
-import { UserProvider } from "@/app/context/UserContext"
-import AuthPage from "../_components/userAuthPage";
-import ExploreHeader from "@/app/explore/_components/explore_Header";
-export default function AuthForm(){
-  return( 
+import { Suspense } from "react";
+import { UserProvider } from "@/app/context/UserContext";
+import { SiteShell } from "@/app/components/Site/SiteShell";
+import AuthForm from "../_components/AuthForm";
+
+export default function Page() {
+  return (
     <UserProvider>
-      <ExploreHeader></ExploreHeader>
-      <AuthPage></AuthPage>
+      <SiteShell footer={false}>
+        <Suspense>
+          <AuthForm role="USER" />
+        </Suspense>
+      </SiteShell>
     </UserProvider>
-  )
+  );
 }

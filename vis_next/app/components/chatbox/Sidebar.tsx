@@ -12,14 +12,14 @@ import {
   Loader2,
   LogOut,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
   MapPin,
   Pencil,
   Trash2,
   Newspaper,
+  Stethoscope,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
@@ -31,6 +31,9 @@ import {
 import axios from "axios";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { removeAuthToken, getAuthToken } from "@/lib/auth-utils";
+import { cn } from "@/lib/utils";
+import ThemeSwitcher from "@/app/components/Common/ThemeSwitcher";
+import { Logo } from "@/app/components/Site/Logo";
 import ConfirmModal from "./ConfirmModal";
 
 interface ChatItem {
@@ -43,6 +46,12 @@ interface SidebarProps {
   isMobile: boolean;
   onCollapseChange?: (isCollapsed: boolean) => void;
 }
+
+const links = [
+  { href: "/doctors", label: "Doctors", icon: Stethoscope },
+  { href: "/explore", label: "Hospitals", icon: MapPin },
+  { href: "/news", label: "Health news", icon: Newspaper },
+];
 
 export function Sidebar({ isMobile, onCollapseChange }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -73,19 +82,18 @@ export function Sidebar({ isMobile, onCollapseChange }: SidebarProps) {
         }
       );
       if (res.ok) {
-        const data = await res.json();
-        console.log("Fetched user:", data);
-        setUser(data);
+        setUser(await res.json());
       } else {
         console.error("Failed to fetch user:", res.status);
       }
     };
     fetchUser();
   }, []);
+
   useEffect(() => {
-    const fetchChats = async () => {
+    const fetchChats = async (showLoader = true) => {
       try {
-        setIsLoading(true);
+        setIsLoading(showLoader);
         const token = getAuthToken();
 
         const response = await axios.get(
@@ -117,36 +125,14 @@ export function Sidebar({ isMobile, onCollapseChange }: SidebarProps) {
       }
     };
     fetchChats();
+    const refresh = () => fetchChats(false);
+    window.addEventListener("jivika:chats-changed", refresh);
+    return () => window.removeEventListener("jivika:chats-changed", refresh);
   }, []);
 
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
-
-  const isActive = (href: string) => pathname === href;
-
-  const handleNewChat = () => {
-    let response = axios
-      .post(
-        `${process.env.NEXT_PUBLIC_FASTAPI_BACKEND_URL}/sessions/`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        }
-      )
-      .then((res) => {
-        const data = res.data;
-        if (data.id) {
-          window.location.href = `/chat/${data.id}`;
-        }
-      })
-      .catch((error) => {
-        console.error("Error creating new chat:", error);
-      });
-  };
 
   const handleLogout = () => {
     removeAuthToken();
@@ -213,517 +199,217 @@ export function Sidebar({ isMobile, onCollapseChange }: SidebarProps) {
     }
   };
 
-  if (isMobile) {
-    return (
-      <>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-card hover:bg-accent text-foreground transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+  const accountMenu = (
+    <DropdownMenuContent align={isCollapsed ? "start" : "end"} side={isCollapsed ? "right" : "top"} className="w-56">
+      <DropdownMenuItem asChild>
+        <Link href="/profile" className="flex cursor-pointer items-center gap-2">
+          <User size={16} />
+          View profile
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={handleLogout} variant="destructive" className="flex cursor-pointer items-center gap-2">
+        <LogOut size={16} />
+        Log out
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
 
-        <aside
-          className={`fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border text-sidebar-foreground transform transition-transform duration-300 z-40 flex flex-col ${
-            isOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <div className="p-4 mt-16">
-            <h1 className="text-2xl font-bold text-sidebar-primary">JIVIKA</h1>
-            <p className="text-xs text-muted-foreground">Doctor AI Assistant</p>
-          </div>
+  const avatar = (size: string) => (
+    <Avatar className={size}>
+      <AvatarImage src={user?.profilePhoto} alt={user?.name} />
+      <AvatarFallback className="bg-brand-tint text-sm text-brand">{user?.name?.charAt(0) || "U"}</AvatarFallback>
+    </Avatar>
+  );
 
-          <div className="p-4 border-b border-sidebar-border space-y-3">
-            <Link href="/chat" className="w-full">
-              <Button
-                variant="default"
-                className="w-full justify-start gap-3 bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground"
-              >
-                <Plus size={20} />
-                New Chat
-              </Button>
-            </Link>
-
-            <Link href="/explore" className="w-full">
-              <Button
-                variant="default"
-                className={`w-full mt-2 justify-start gap-3 bg-background text-foreground hover:bg-sidebar-primary/90 hover:text-foreground/90`}
-              >
-                <MapPin size={20} />
-                Explore Hospitals
-              </Button>
-            </Link>
-            <Link href="/news" className="w-full">
-              <Button
-                variant="default"
-                className={`w-full mt-2 justify-start gap-3 bg-background text-foreground hover:bg-sidebar-primary/90 hover:text-foreground/90`}
-              >
-                <Newspaper size={20} />
-                Explore News
-              </Button>
-            </Link>
-            <Link href="/doctors" className="w-full">
-              <Button
-                variant="default"
-                className={`w-full mt-2 justify-start gap-3 bg-background text-foreground hover:bg-sidebar-primary/90 hover:text-foreground/90`}
-              >
-                <User size={20} />
-                View Doctors
-              </Button>
-            </Link>
-
-          </div>
-
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Chat History
-              </p>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="px-2 space-y-1">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2
-                      className="animate-spin text-muted-foreground"
-                      size={20}
-                    />
-                  </div>
-                ) : chats.length === 0 ? (
-                  <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-                    No chats yet
-                  </p>
-                ) : (
-                  chats.map((chat) => (
-                    <Link key={chat.id} href={`/chat/${chat.id}`}>
-                      <button
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-sm truncate ${
-                          isActive(`/chat/${chat.id}`)
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MessageSquare
-                            size={16}
-                            className="shrink-0 text-sidebar-primary"
-                          />
-                          <span className="truncate max-w-[135px]">
-                            {chat.title}
-                          </span>
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleOpenRename(chat);
-                            }}
-                            className="cursor-pointer text-muted-foreground hover:text-primary"
-                            title="Rename Chat"
-                          >
-                            <Pencil size={12} />
-                          </span>
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleOpenDelete(chat);
-                            }}
-                            className="cursor-pointer text-muted-foreground hover:text-red-500"
-                            title="Delete Chat"
-                          >
-                            <Trash2 size={12} />
-                          </span>
-                        </div>
-                      </button>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-
-          <div className="p-4 border-t border-sidebar-border space-y-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-between gap-3 text-sidebar-foreground hover:bg-sidebar-accent"
-                >
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8 border border-border">
-                      <AvatarImage src={user?.profilePhoto} alt={user?.name} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                        {user?.name?.charAt(0) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-medium truncate max-w-[120px]">
-                        {user?.name || "Unnamed User"}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronUp size={16} className="shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/profile"
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <User size={16} />
-                    View Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-red-700"
-                >
-                  <LogOut size={16} />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </aside>
-        <ConfirmModal
-          open={showRenameModal}
-          onOpenChange={setShowRenameModal}
-          title="Rename Chat"
-          description="Enter a new title for this chat."
-          confirmLabel="Save"
-          showInput
-          inputValue={newTitle}
-          onInputChange={setNewTitle}
-          onConfirm={confirmRename}
-        />
-
-        <ConfirmModal
-          open={showDeleteModal}
-          onOpenChange={setShowDeleteModal}
-          title="Delete Chat?"
-          description="This action cannot be undone."
-          confirmLabel="Delete"
-          onConfirm={confirmDelete}
-        />
-
-        {isOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-30"
-            onClick={() => setIsOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-      </>
-    );
-  }
-
-  if (isCollapsed && !isMobile) {
-    return (
-      <aside className="h-full flex flex-col bg-sidebar text-sidebar-foreground w-16 border-r border-sidebar-border">
-        <div className="p-2 flex justify-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCollapsed(false)}
-            className="h-10 w-10 text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <ChevronRight size={20} />
-          </Button>
-        </div>
-
-        <div className="p-2 border-b border-sidebar-border flex flex-col items-center space-y-2">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleNewChat}
-            className="h-10 w-10 bg-background hover:bg-sidebar-accent text-foreground"
-          >
-            <Plus size={20} />
-          </Button>
-
-          <Link href="/explore">
-            <Button
-              variant="default"
-              size="sm"
-              className="h-10 w-10 bg-background hover:bg-sidebar-accent text-foreground"
-            >
-              <MapPin size={20} />
-            </Button>
-          </Link>
-
-          <Link href="/news">
-            <Button
-              variant="default"
-              size="sm"
-              className="h-10 w-10 bg-background hover:bg-sidebar-accent text-foreground"
-            >
-              <Newspaper size={20} />
-            </Button>
-          </Link>
-          <Link href="/doctors" className="w-full">
-            <Button
-              variant="default"
-              className={`w-full mt-2 justify-start gap-3 bg-background text-foreground hover:bg-sidebar-primary/90 hover:text-foreground/90`}
-            >
-              <User size={20} />
-              View Doctors
-            </Button>
-          </Link>
-        </div>
-
-        <div className="flex-1 flex flex-col items-center py-4 space-y-2">
-          {chats.slice(0, 4).map((chat) => (
-            <Link key={chat.id} href={`/chat/${chat.id}`}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`h-10 w-10 ${
-                  isActive(`/chat/${chat.id}`)
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent"
-                }`}
-              >
-                <MessageSquare size={16} />
-              </Button>
-            </Link>
-          ))}
-        </div>
-
-        <div className="p-2 border-t border-sidebar-border flex justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-10 w-10 text-sidebar-foreground hover:bg-sidebar-accent"
-              >
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={user?.profilePhoto} alt={user?.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {user?.name?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="right" className="w-56">
-              <DropdownMenuItem asChild>
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <User size={16} />
-                  View Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-red-700"
-              >
-                <LogOut size={16} />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
-    );
-  }
-
-  return (
+  const modals = (
     <>
-      <aside className="h-full flex flex-col bg-sidebar text-sidebar-foreground">
-        <div className="p-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-sidebar-primary">JIVIKA</h1>
-            <p className="text-xs text-muted-foreground">Doctor AI Assistant</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCollapsed(true)}
-            className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <ChevronLeft size={16} />
-          </Button>
-        </div>
-
-        <div className="p-4 border-b border-sidebar-border space-y-3">
-          <Link href="/chat" className="w-full">
-            <Button
-              variant="default"
-              className="w-full mt-2 justify-start gap-3 bg-background hover:bg-sidebar-primary/90 text-foreground"
-              onClick={handleNewChat}
-            >
-              <Plus size={20} />
-              New Chat
-            </Button>
-          </Link>
-
-          <Link href="/explore" className="w-full">
-            <Button
-              variant="default"
-              className={`w-full mt-2 justify-start gap-3 bg-background hover:bg-sidebar-primary/90 text-foreground`}
-            >
-              <MapPin size={20} />
-              Explore Hospitals
-            </Button>
-          </Link>
-          <Link href="/news" className="w-full">
-            <Button
-              variant="default"
-              className={`w-full mt-2 justify-start gap-3 bg-background hover:bg-sidebar-primary/90 text-foreground`}
-            >
-              <Newspaper size={20} />
-              Explore News
-            </Button>
-          </Link>
-          <Link href="/doctors" className="w-full">
-            <Button
-              variant="default"
-              className={`w-full mt-2 justify-start gap-3 bg-background hover:bg-sidebar-primary/90 text-foreground`}
-            >
-              <User size={20} />
-              View Doctors
-            </Button>
-          </Link>
-        </div>
-
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-4 py-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Chat History
-            </p>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="px-2 space-y-1">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2
-                    className="animate-spin text-muted-foreground"
-                    size={20}
-                  />
-                </div>
-              ) : chats.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-                  No chats yet
-                </p>
-              ) : (
-                chats.map((chat) => (
-                  <Link key={chat.id} href={`/chat/${chat.id}`}>
-                    <button
-                      className={`group w-full text-left px-3 py-2 rounded-lg transition-colors text-sm truncate ${
-                        isActive(`/chat/${chat.id}`)
-                          ? "bg-sidebar-accent text-sidebar-primary"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare
-                          size={16}
-                          className="shrink-0 text-sidebar-primary"
-                        />
-                        <span className="truncate max-w-[135px]">
-                          {chat.title}
-                        </span>
-
-                        <div className="flex items-center gap-2 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleOpenRename(chat);
-                            }}
-                            className="cursor-pointer text-muted-foreground hover:text-primary"
-                            title="Rename Chat"
-                          >
-                            <Pencil size={12} />
-                          </span>
-                          <span
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleOpenDelete(chat);
-                            }}
-                            className="cursor-pointer text-muted-foreground hover:text-red-500"
-                            title="Delete Chat"
-                          >
-                            <Trash2 size={12} />
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  </Link>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-
-        <div className="p-4 border-t border-sidebar-border space-y-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-between gap-3 text-sidebar-foreground hover:bg-sidebar-accent"
-              >
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 border border-border">
-                    <AvatarImage src={user?.profilePhoto} alt={user?.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                      {user?.name?.charAt(0) || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium truncate max-w-[120px]">
-                      {user?.name || "Unnamed User"}
-                    </span>
-                  </div>
-                </div>
-                <ChevronUp size={16} className="shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem asChild>
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <User size={16} />
-                  View Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="flex items-center gap-2 cursor-pointer text-red-600 hover:text-red-700"
-              >
-                <LogOut size={16} />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
       <ConfirmModal
         open={showRenameModal}
         onOpenChange={setShowRenameModal}
-        title="Rename Chat"
-        description="Enter a new title for this chat."
+        title="Rename chat"
+        description="Choose a title that's easy to find later."
         confirmLabel="Save"
         showInput
         inputValue={newTitle}
         onInputChange={setNewTitle}
         onConfirm={confirmRename}
       />
-
       <ConfirmModal
         open={showDeleteModal}
         onOpenChange={setShowDeleteModal}
-        title="Delete Chat?"
-        description="This action cannot be undone."
+        title="Delete this chat?"
+        description="This can't be undone."
         confirmLabel="Delete"
         onConfirm={confirmDelete}
       />
+    </>
+  );
+
+  if (isCollapsed && !isMobile) {
+    return (
+      <aside className="flex h-full flex-col items-center gap-1 bg-surface py-3">
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(false)}
+          aria-label="Expand sidebar"
+          className="rounded-full p-2.5 text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+        <Link href="/chat" aria-label="New chat" className="mt-1 rounded-full bg-brand-gradient p-2.5 text-on-brand transition hover:brightness-110">
+          <Plus size={18} />
+        </Link>
+        <div className="mt-2 flex flex-col gap-1 border-t border-border pt-3">
+          {links.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} aria-label={label} title={label} className="rounded-full p-2.5 text-ink-soft transition hover:bg-surface-2 hover:text-foreground">
+              <Icon size={18} />
+            </Link>
+          ))}
+        </div>
+        <div className="mt-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger aria-label="Account" className="rounded-full p-1.5 transition hover:bg-surface-2">
+              {avatar("size-8")}
+            </DropdownMenuTrigger>
+            {accountMenu}
+          </DropdownMenu>
+        </div>
+      </aside>
+    );
+  }
+
+  const panel = (
+    <aside className="flex h-full flex-col bg-surface">
+      <div className={cn("flex h-14 shrink-0 items-center justify-between px-4", isMobile && "pl-14")}>
+        <Logo />
+        {!isMobile && (
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(true)}
+            aria-label="Collapse sidebar"
+            className="rounded-full p-2 text-muted-foreground transition hover:bg-surface-2 hover:text-foreground"
+          >
+            <PanelLeftClose size={16} />
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-0.5 px-3 pt-1 pb-3">
+        <Link
+          href="/chat"
+          className="mb-2 flex items-center justify-center gap-2 rounded-full bg-brand-gradient px-4 py-2.5 text-sm font-medium text-on-brand shadow-[0_1px_0_rgb(255_255_255/0.2)_inset] transition hover:brightness-110"
+        >
+          <Plus size={16} /> New chat
+        </Link>
+        {links.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink-soft transition hover:bg-surface-2 hover:text-foreground"
+          >
+            <Icon size={16} className="shrink-0 text-muted-foreground" />
+            {label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col border-t border-border">
+        <p className="px-6 pt-4 pb-2 font-mono text-[11px] tracking-wider text-muted-foreground uppercase">Your chats</p>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-0.5 px-3 pb-3">
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="animate-spin text-muted-foreground" size={18} />
+              </div>
+            ) : chats.length === 0 ? (
+              <p className="px-3 py-4 text-sm text-muted-foreground">Your conversations will appear here.</p>
+            ) : (
+              chats.map((chat) => {
+                const active = pathname === `/chat/${chat.id}`;
+                return (
+                  <div
+                    key={chat.id}
+                    className={cn(
+                      "group relative flex items-center rounded-xl text-sm transition",
+                      active ? "bg-brand-tint text-brand" : "text-ink-soft hover:bg-surface-2 hover:text-foreground",
+                    )}
+                  >
+                    <Link href={`/chat/${chat.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 [@media(hover:none)]:pr-16">
+                      <MessageSquare size={15} className="shrink-0 opacity-60" />
+                      <span className="truncate">{chat.title}</span>
+                    </Link>
+                    <div className="absolute right-1.5 flex gap-0.5 rounded-lg bg-surface-2 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRename(chat)}
+                        aria-label={`Rename ${chat.title}`}
+                        className="rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDelete(chat)}
+                        aria-label={`Delete ${chat.title}`}
+                        className="rounded-md p-1.5 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <div className="space-y-2 border-t border-border p-3">
+        <ThemeSwitcher className="w-full justify-between" />
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition hover:bg-surface-2">
+            {avatar("size-8 shrink-0")}
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{user?.name || "Your account"}</span>
+            <ChevronUp size={15} className="shrink-0 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          {accountMenu}
+        </DropdownMenu>
+      </div>
+    </aside>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label={isOpen ? "Close menu" : "Open menu"}
+          className="fixed top-2.5 left-3 z-50 rounded-full p-2 text-ink-soft transition hover:bg-surface"
+        >
+          {isOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        <div
+          className={cn(
+            "fixed inset-y-0 left-0 z-40 w-72 border-r border-border bg-background transition-transform duration-300",
+            isOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          {panel}
+        </div>
+
+        {isOpen && <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setIsOpen(false)} aria-hidden="true" />}
+        {modals}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {panel}
+      {modals}
     </>
   );
 }

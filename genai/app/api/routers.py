@@ -2,7 +2,7 @@ import json
 import os
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage, AIMessage,SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk, SystemMessage
 import requests
 from typing import List, Optional
 from uuid import UUID
@@ -13,11 +13,11 @@ from .schemas import (
 )
 from app.db import get_db, SessionLocal
 from app import crud, models
-from app.clients import openAi_Client
+from app.clients import llm_client
+from app.prompts import titlePrompt
 
-# Use environment variable for backend URL, defaulting to Docker service name
-# BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:2706/api/v1/user/current-user")
-BACKEND_URL = "http://localhost:2706/api/v1/user/current-user"
+# Use environment variable for backend URL, defaulting to local dev
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:2706/api/v1/user/current-user")
 
 def get_current_user(authorization: str = Header(None)) -> dict:
     if not authorization:
@@ -37,6 +37,9 @@ def get_current_user(authorization: str = Header(None)) -> dict:
         raise HTTPException(status_code=e.response.status_code, detail="Unauthorized")
     except requests.exceptions.RequestException:
         raise HTTPException(status_code=500, detail="Auth service unreachable")
+
+# Graph nodes whose LLM output is the reply shown to the user
+REPLY_NODES = {"explainNode", "clinicalNode"}
 
 def get_langgraph_agent(request: Request):
     return request.app.state.langgraph_agent
@@ -124,83 +127,77 @@ async def chat_with_bot(
         crud.add_message(db, session_id, MessageCreate(role="human", content=image_url))
 
     invocation_input = {
-    "messages": [HumanMessage(content=message.content)],
-    "request": message.tag
-}
-
-    if message.imageURL:
-        invocation_input["imageURL"] = message.imageURL
-    if not message.tag:
-        invocation_input["request"] = "None"
-    if not message.imageURL:
-        invocation_input["imageURL"] = ""
+        "messages": [HumanMessage(content=message.content)],
+        "request": message.tag or "None",
+        "imageURL": message.imageURL or "",
+        "features": message.features,
+    }
     print("🚦 Invocation Input:", invocation_input)
 
     config = {"configurable": {"thread_id": thread_id}}
 
+    def chunk(type: str, content: str) -> str:
+        return ChatResponseChunk(type=type, content=content).model_dump_json() + "\n"
+
     async def stream_generator():
         final_ai_response = ""
-        final_image_urls: List[str] = []
+        final_analysis = None
+        # Nodes whose reply already went out token by token
+        streamed_nodes = set()
         try:
-            async for chunk in agent.astream(invocation_input, config):
-                node_name = list(chunk.keys())[0]
-                node_output = chunk[node_name]
+            async for mode, data in agent.astream(
+                invocation_input, config, stream_mode=["updates", "messages", "custom"]
+            ):
+                if mode == "custom":
+                    if isinstance(data, dict) and data.get("status"):
+                        yield chunk("status", data["status"])
 
-                if not isinstance(node_output, dict):
-                    continue
+                elif mode == "messages":
+                    token, metadata = data
+                    is_reply = metadata.get("langgraph_node") in REPLY_NODES
+                    if is_reply and isinstance(token, AIMessageChunk) and isinstance(token.content, str) and token.content:
+                        streamed_nodes.add(metadata.get("langgraph_node"))
+                        final_ai_response += token.content
+                        yield chunk("message", token.content)
 
-                response_chunk = None
-
-                if "messages" in node_output:
-                    ai_message_or_list = node_output["messages"]
-
-                    if isinstance(ai_message_or_list, list):
-                        ai_message = ai_message_or_list[-1]
-                    else:
-                        ai_message = ai_message_or_list
-
-                    if isinstance(ai_message, AIMessage):
-                        response_content = ai_message.content
-                        final_ai_response += response_content
-                        response_chunk = ChatResponseChunk(
-                            type="message",
-                            content=response_content
-                        ).model_dump_json()
-                if "rImageUrl" in node_output:
-                    r_img = node_output["rImageUrl"]
-                    urls = r_img if isinstance(r_img, list) else [r_img]
-                    for u in urls:
-                        if not u:
+                else:
+                    for node_name, node_output in data.items():
+                        if not isinstance(node_output, dict):
                             continue
-                        final_image_urls.append(u)
-                        img_chunk = ChatResponseChunk(
-                            type="image",
-                            content=u
-                        ).model_dump_json()
-                        yield f"{img_chunk}\n"
 
-                if response_chunk:
-                    yield f"{response_chunk}\n"
+                        if node_output.get("analysis"):
+                            final_analysis = node_output["analysis"]
+                            yield chunk("analysis", json.dumps(final_analysis))
 
-            if final_ai_response or final_image_urls:
+                        if "messages" in node_output and node_name not in streamed_nodes:
+                            ai_message_or_list = node_output["messages"]
+
+                            if isinstance(ai_message_or_list, list):
+                                ai_message = ai_message_or_list[-1]
+                            else:
+                                ai_message = ai_message_or_list
+
+                            if isinstance(ai_message, AIMessage) and ai_message.content:
+                                final_ai_response += ai_message.content
+                                yield chunk("message", ai_message.content)
+
+            if final_ai_response or final_analysis:
                 with SessionLocal() as db_session:
+                    if final_analysis:
+                        # Saved as its own message so the result card comes back when the chat is reopened
+                        crud.add_message(
+                            db_session, session_id,
+                            MessageCreate(role="ai", content=json.dumps({"type": "analysis", "data": final_analysis}))
+                        )
                     if final_ai_response:
                         crud.add_message(
                             db_session, session_id,
                             MessageCreate(role="ai", content=final_ai_response)
                         )
-                    for img_url in final_image_urls:
-                        crud.add_message(
-                            db_session, session_id,
-                            MessageCreate(role="ai", content=img_url)
-                        )
 
         except Exception as e:
-            error_chunk = ChatResponseChunk(
-                type="error",
-                content=str(e)
-            ).model_dump_json()
-            yield f"{error_chunk}\n"
+            print(f"❌ Chat stream error: {e}")
+            yield chunk("error", str(e))
 
     return StreamingResponse(stream_generator(), media_type="application/x-ndjson")
 
@@ -239,18 +236,13 @@ def _generate_title_task(session_id: UUID, messages: List[models.Message]):
     print(f"Background task started: Generating title for session {session_id}")
     try:
         conversation_history = "\n".join(
-            [f"{msg.role}: {msg.content}" for msg in messages[:2]] 
+            [f"{msg.role}: {msg.content}" for msg in messages[:3] if not msg.content.startswith('{"type": "analysis"')]
         )
         
-        prompt = f"""You are a title generator. Based on the following conversation, create a very short, concise title (4 words maximum).
-        
-        Conversation:
-        {conversation_history}
-        
-        Title:"""
+        prompt = titlePrompt.replace("{conversation}", conversation_history)
 
-        system_message = SystemMessage(content=prompt)
-        response = openAi_Client.invoke([system_message])
+        # Gemini rejects a request that has only a system message
+        response = llm_client.invoke([HumanMessage(content=prompt)])
         
         new_title = response.content.strip().strip('"') 
         

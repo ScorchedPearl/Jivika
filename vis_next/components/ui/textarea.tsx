@@ -22,21 +22,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && onFilesChange) {
-        const newFiles = Array.from(e.target.files)
-        let allFiles: FileList
-
-        if (selectedFiles && selectedFiles.length > 0) {
-          const combined = [...Array.from(selectedFiles), ...newFiles]
-          const dataTransfer = new DataTransfer()
-          combined.forEach((file) => dataTransfer.items.add(file))
-          allFiles = dataTransfer.files
-        } else {
-          allFiles = e.target.files
-        }
-
-        onFilesChange(allFiles)
+      if (e.target.files && e.target.files.length > 0 && onFilesChange) {
+        onFilesChange(e.target.files)
       }
+      // Lets the same file be picked again after it has been removed
+      e.target.value = ""
     }
 
     return (
@@ -47,13 +37,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             {Array.from(selectedFiles).map((file, index) => (
               <div
                 key={index}
-                className="flex items-center gap-2 border border-border bg-card rounded-md px-2 py-1 text-xs text-foreground shadow-sm"
+                className="flex items-center gap-2 border border-border bg-card rounded-xl px-2 py-1 text-xs text-foreground"
               >
                 {file.type.startsWith("image/") ? (
                   <img
                     src={URL.createObjectURL(file)}
                     alt={file.name}
-                    className="h-8 w-8 object-cover rounded-sm"
+                    className="h-8 w-8 object-cover rounded-lg"
                   />
                 ) : (
                   <div className="truncate max-w-[120px] text-muted-foreground flex items-center gap-1">
@@ -77,7 +67,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           <textarea
             ref={ref}
             className={cn(
-              "flex min-h-20 w-full resize-none rounded-md border border-border bg-card px-3 py-2 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50",
+              "flex min-h-20 w-full resize-none rounded-xl border border-border bg-background px-3.5 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[var(--brand-ink)] focus-visible:ring-[3px] focus-visible:ring-[var(--brand-tint)] disabled:cursor-not-allowed disabled:opacity-50",
               className
             )}
             {...props}
@@ -87,18 +77,20 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            multiple
-            accept="image/*,application/pdf,.doc,.docx,.txt"
+            accept="image/*"
             className="hidden"
           />
 
-          <button
-            type="button"
-            onClick={handleFileButtonClick}
-            className="absolute bottom-2 right-2 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <Paperclip className="h-4 w-4" />
-          </button>
+          {onFilesChange && (
+            <button
+              type="button"
+              onClick={handleFileButtonClick}
+              aria-label="Attach an image"
+              className="absolute bottom-2 right-2 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     )

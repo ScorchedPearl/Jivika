@@ -1,13 +1,17 @@
 "use client";
+import { Suspense } from "react";
 import { UserProvider } from "@/app/context/UserContext";
-import DoctorAuthPage from "../_components/doctorAuthPage";
-import ExploreHeader from "@/app/explore/_components/explore_Header";
+import { SiteShell } from "@/app/components/Site/SiteShell";
+import AuthForm from "../_components/AuthForm";
 
-export default function DoctorAuthPageWrapper() {
+export default function Page() {
   return (
     <UserProvider>
-      <ExploreHeader />
-      <DoctorAuthPage />
+      <SiteShell footer={false}>
+        <Suspense>
+          <AuthForm role="DOCTOR" />
+        </Suspense>
+      </SiteShell>
     </UserProvider>
   );
 }

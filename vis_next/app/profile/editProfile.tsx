@@ -102,13 +102,13 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
   )
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-background border border-border rounded-xl shadow-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold text-foreground mb-4">Edit Profile</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[90dvh] w-full max-w-md animate-rise overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl">
+        <h2 className="mb-5 font-serif text-2xl text-foreground">Edit profile</h2>
 
         <div className="space-y-4">
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Name</p>
+            <p className="mb-1.5 text-sm font-medium text-ink-soft">Name</p>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -117,10 +117,10 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
           </div>
 
           <div>
-            <p className="text-sm text-muted-foreground mb-2">Profile Photo</p>
+            <p className="mb-2 text-sm font-medium text-ink-soft">Profile photo</p>
             <div className="space-y-3">
               {(profilePhoto || selectedFile) && (
-                <div className="relative w-20 h-20 rounded-full overflow-hidden border border-border">
+                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-border">
                   <img 
                     src={selectedFile ? URL.createObjectURL(selectedFile) : profilePhoto} 
                     alt="Profile" 
@@ -144,7 +144,7 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
                   disabled={uploadingImage}
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  {selectedFile ? "Change Photo" : "Upload Photo"}
+                  {selectedFile ? "Change photo" : "Upload photo"}
                 </Button>
                 
                 {selectedFile && (
@@ -168,7 +168,7 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
               )}
               
               {uploadingImage && (
-                <p className="text-xs text-blue-500">Uploading image...</p>
+                <p className="text-xs text-muted-foreground">Uploading image...</p>
               )}
               
               <div className="pt-2 border-t border-border">
@@ -183,17 +183,17 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
           </div>
 
           <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground mb-2">Change Password</p>
+            <p className="mb-2 text-sm font-medium text-ink-soft">Change password</p>
             <Input
               type="password"
-              placeholder="Current Password"
+              placeholder="Current password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               className="mb-2"
             />
             <Input
               type="password"
-              placeholder="New Password"
+              placeholder="New password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
@@ -203,7 +203,7 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
         {message.text && (
           <p
             className={`mt-4 text-sm ${
-              message.type === "success" ? "text-green-500" : "text-red-500"
+              message.type === "success" ? "text-brand" : "text-destructive"
             }`}
           >
             {message.text}
@@ -215,7 +215,7 @@ export function EditProfileModal({ open, onClose, currentUser, onProfileUpdated 
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={loading || uploadingImage || !hasChanges}>
-            {loading || uploadingImage ? (uploadingImage ? "Uploading..." : "Saving...") : "Save Changes"}
+            {loading || uploadingImage ? (uploadingImage ? "Uploading..." : "Saving...") : "Save changes"}
           </Button>
         </div>
       </div>

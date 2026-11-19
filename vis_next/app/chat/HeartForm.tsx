@@ -1,179 +1,173 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { Field, inputClass } from "@/app/components/Site/form";
+import { cn } from "@/lib/utils";
+import { type Answer, answerValue, Choices, ToolForm, type ToolFormProps, YesNo } from "./_components/ToolForm";
 
-interface HeartFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (prompt: string) => void;
-}
+// Codes the heart model was trained with
+type Sex = "F" | "M";
+type ChestPain = "ASY" | "NAP" | "ATA" | "TA";
+type StSlope = "Up" | "Flat" | "Down";
+type RestingEcg = "Normal" | "ST" | "LVH";
 
-export const HeartForm = ({ isOpen, onClose, onSubmit }: HeartFormProps) => {
-  const [maxHr, setMaxHr] = useState("");
-  const [chestPainType, setChestPainType] = useState("");
+const sexOptions: { value: Sex; label: string }[] = [
+  { value: "F", label: "Female" },
+  { value: "M", label: "Male" },
+];
+
+const chestPainOptions: { value: ChestPain; label: string; hint: string }[] = [
+  { value: "ASY", label: "No chest pain", hint: "You don't get chest pain or tightness." },
+  { value: "TA", label: "Typical angina", hint: "Pressure or tightness when active that eases with rest." },
+  { value: "ATA", label: "Atypical angina", hint: "Chest discomfort with only some of those features." },
+  { value: "NAP", label: "Other chest pain", hint: "Sharp or brief pain, or pain that changes with breathing or position." },
+];
+
+const slopeOptions: { value: StSlope; label: string }[] = [
+  { value: "Up", label: "Upsloping" },
+  { value: "Flat", label: "Flat" },
+  { value: "Down", label: "Downsloping" },
+];
+
+const ecgOptions: { value: RestingEcg; label: string }[] = [
+  { value: "Normal", label: "Normal" },
+  { value: "ST", label: "ST-T changes" },
+  { value: "LVH", label: "LV hypertrophy" },
+];
+
+const numberOrNull = (text: string) => (text === "" ? null : Number(text));
+
+export const HeartForm = ({ isOpen, onClose, onSubmit }: ToolFormProps) => {
+  const [age, setAge] = useState("");
+  const [sex, setSex] = useState<Sex | "">("");
+  const [chestPain, setChestPain] = useState<ChestPain | "">("");
+  const [restingBp, setRestingBp] = useState("");
   const [cholesterol, setCholesterol] = useState("");
+  const [highSugar, setHighSugar] = useState<Answer | "">("");
+
+  const [hasStressTest, setHasStressTest] = useState(false);
+  const [maxHr, setMaxHr] = useState("");
+  const [exerciseAngina, setExerciseAngina] = useState<Answer | "">("");
   const [oldpeak, setOldpeak] = useState("");
-  const [stSlope, setStSlope] = useState("");
+  const [stSlope, setStSlope] = useState<StSlope | "">("");
+  const [restingEcg, setRestingEcg] = useState<RestingEcg | "">("");
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
-    if (!maxHr || !chestPainType || !cholesterol || !oldpeak || !stSlope) {
-      setError("Please fill out all 5 fields.");
+    if (!age || !sex || !chestPain) {
+      setError("Please give your age, sex and whether you get chest pain. Everything else can be left blank.");
       return;
     }
+    const years = Number(age);
+    if (years < 18 || years > 100) {
+      setError("This check is for adults aged 18 to 100.");
+      return;
+    }
+    const checks: [string, string, number, number][] = [
+      ["Resting blood pressure", restingBp, 70, 250],
+      ["Cholesterol", cholesterol, 80, 700],
+      ["Maximum heart rate", hasStressTest ? maxHr : "", 60, 220],
+      ["ST depression", hasStressTest ? oldpeak : "", -3, 7],
+    ];
+    for (const [name, text, low, high] of checks) {
+      if (text !== "" && (Number(text) < low || Number(text) > high)) {
+        setError(`${name} should be between ${low} and ${high}.`);
+        return;
+      }
+    }
 
-    setError("");
-    const prompt = `Hi, can you analyze my heart health based on these details?
-MAXHR: ${maxHr}, ChestPainType: ${chestPainType}, Cholesterol: ${cholesterol}, Oldpeak: ${oldpeak}, ST_Slope: ${stSlope}. 
-Please tell me if this looks normal or risky, and why.`;
-    onSubmit(prompt);
+    const painLabel = chestPainOptions.find((o) => o.value === chestPain)!.label.toLowerCase();
+    const parts = [
+      `Age ${age}, ${sex === "M" ? "male" : "female"}`,
+      `Chest pain: ${painLabel}`,
+      restingBp && `Resting blood pressure: ${restingBp} mmHg`,
+      cholesterol && `Cholesterol: ${cholesterol} mg/dL`,
+      highSugar === "yes" && "Fasting blood sugar above 120 mg/dL",
+      hasStressTest && maxHr && `Maximum heart rate: ${maxHr} bpm`,
+      hasStressTest && exerciseAngina === "yes" && "Chest pain during exercise",
+      hasStressTest && oldpeak && `ST depression: ${oldpeak}`,
+      hasStressTest && stSlope && `${slopeOptions.find((o) => o.value === stSlope)!.label} ST segment`,
+    ].filter(Boolean);
 
-    setMaxHr("");
-    setChestPainType("");
-    setCholesterol("");
-    setOldpeak("");
-    setStSlope("");
-  };
-
-  const handleCancel = () => {
-    setMaxHr("");
-    setChestPainType("");
-    setCholesterol("");
-    setOldpeak("");
-    setStSlope("");
-    setError("");
-    onClose();
+    onSubmit(`Please check my heart risk. ${parts.join(". ")}.`, {
+      age: years,
+      sex,
+      chest_pain: chestPain,
+      resting_bp: numberOrNull(restingBp),
+      cholesterol: numberOrNull(cholesterol),
+      high_fasting_sugar: answerValue(highSugar),
+      max_hr: hasStressTest ? numberOrNull(maxHr) : null,
+      exercise_angina: hasStressTest ? answerValue(exerciseAngina) : null,
+      oldpeak: hasStressTest ? numberOrNull(oldpeak) : null,
+      st_slope: hasStressTest && stSlope ? stSlope : null,
+      resting_ecg: hasStressTest && restingEcg ? restingEcg : null,
+    });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="p-5 border rounded-xl bg-card shadow-lg animate-in fade-in-0 slide-in-from-top-4 duration-300">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Heart Health Input</h3>
-          <p className="text-sm text-muted-foreground">
-            Please provide the 5 required features for analysis.
-          </p>
-        </div>
-        <Button variant="ghost" size="icon" onClick={handleCancel}>
-          <X size={18} />
-        </Button>
+    <ToolForm
+      title="Heart risk check"
+      subtitle="A model estimates your risk of heart disease. Three answers are enough to start, and every extra value you add makes it more accurate."
+      submitLabel="Check my risk"
+      error={error}
+      onSubmit={handleSubmit}
+      onClose={onClose}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Age">
+          <input type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 52" className={inputClass} />
+        </Field>
+        <Choices legend="Sex" options={sexOptions} value={sex} onChange={setSex} columns={3} />
       </div>
 
-      <div className="space-y-5">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <label htmlFor="maxHr" className="text-right text-sm font-medium">
-            Max HR
-          </label>
-          <Input
-            id="maxHr"
-            type="number"
-            value={maxHr}
-            onChange={(e) => setMaxHr(e.target.value)}
-            className="col-span-3"
-            placeholder="e.g., 150"
-          />
-        </div>
+      <Choices legend="Do you get chest pain?" options={chestPainOptions} value={chestPain} onChange={setChestPain} columns={2} />
 
-        <div className="grid grid-cols-4 items-start gap-4">
-          <label className="text-right text-sm font-medium pt-2">
-            Chest Pain
-          </label>
-          <RadioGroup
-            onValueChange={setChestPainType}
-            value={chestPainType}
-            className="col-span-3 flex flex-col space-y-2 pt-1"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="0" id="cp-0" />
-              <label htmlFor="cp-0" className="text-sm">0 (Typical Angina)</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="1" id="cp-1" />
-              <label htmlFor="cp-1" className="text-sm">1 (Atypical Angina)</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="2" id="cp-2" />
-              <label htmlFor="cp-2" className="text-sm">2 (Non-anginal Pain)</label>
-            </div>
-          </RadioGroup>
+      <div className="space-y-4 rounded-xl bg-surface p-4">
+        <p className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">If you know them</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Resting blood pressure" hint="The upper number, in mmHg.">
+            <input type="number" inputMode="numeric" value={restingBp} onChange={(e) => setRestingBp(e.target.value)} placeholder="e.g. 130" className={inputClass} />
+          </Field>
+          <Field label="Cholesterol" hint="Total cholesterol, in mg/dL.">
+            <input type="number" inputMode="numeric" value={cholesterol} onChange={(e) => setCholesterol(e.target.value)} placeholder="e.g. 200" className={inputClass} />
+          </Field>
         </div>
-
-        <div className="grid grid-cols-4 items-center gap-4">
-          <label htmlFor="cholesterol" className="text-right text-sm font-medium">
-            Cholesterol
-          </label>
-          <Input
-            id="cholesterol"
-            type="number"
-            value={cholesterol}
-            onChange={(e) => setCholesterol(e.target.value)}
-            className="col-span-3"
-            placeholder="e.g., 200"
-          />
-        </div>
-
-        <div className="grid grid-cols-4 items-center gap-4">
-          <label htmlFor="oldpeak" className="text-right text-sm font-medium">
-            Oldpeak
-          </label>
-          <Input
-            id="oldpeak"
-            type="number"
-            step="0.1"
-            value={oldpeak}
-            onChange={(e) => setOldpeak(e.target.value)}
-            className="col-span-3"
-            placeholder="e.g., 1.2"
-          />
-        </div>
-
-        <div className="grid grid-cols-4 items-start gap-4">
-          <label className="text-right text-sm font-medium pt-2">
-            ST Slope
-          </label>
-          <RadioGroup
-            onValueChange={setStSlope}
-            value={stSlope}
-            className="col-span-3 flex flex-col space-y-2 pt-1"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="0" id="st-0" />
-              <label htmlFor="st-0" className="text-sm">0 (Upsloping)</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="1" id="st-1" />
-              <label htmlFor="st-1" className="text-sm">1 (Flat)</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="2" id="st-2" />
-              <label htmlFor="st-2" className="text-sm">2 (Downsloping)</label>
-            </div>
-          </RadioGroup>
-        </div>
+        <YesNo question="Is your fasting blood sugar above 120 mg/dL?" value={highSugar} onChange={setHighSugar} allowUnsure />
       </div>
 
-      {error && (
-        <div className="mt-3 text-center">
-          <p className="text-sm text-destructive animate-in fade-in-0">
-            {error}
-          </p>
-        </div>
-      )}
+      <div className="rounded-xl border border-border">
+        <button
+          type="button"
+          aria-expanded={hasStressTest}
+          onClick={() => setHasStressTest((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium text-foreground">I have an exercise ECG (stress test) report</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">Adding it raises the model&apos;s accuracy from about 78% to 86%.</span>
+          </span>
+          <ChevronDown size={18} className={cn("shrink-0 text-muted-foreground transition", hasStressTest && "rotate-180")} />
+        </button>
 
-      <div className="flex justify-end gap-2 mt-6">
-        <Button variant="outline" onClick={handleCancel}>
-          Cancel
-        </Button>
-        <Button type="button" onClick={handleSubmit}>
-          Create Prompt
-        </Button>
+        {hasStressTest && (
+          <div className="space-y-4 border-t border-border p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Maximum heart rate" hint="The highest rate reached, in bpm.">
+                <input type="number" inputMode="numeric" value={maxHr} onChange={(e) => setMaxHr(e.target.value)} placeholder="e.g. 150" className={inputClass} />
+              </Field>
+              <Field label="ST depression (oldpeak)" hint="Usually between 0 and 4.">
+                <input type="number" inputMode="decimal" step="0.1" value={oldpeak} onChange={(e) => setOldpeak(e.target.value)} placeholder="e.g. 1.0" className={inputClass} />
+              </Field>
+            </div>
+            <YesNo question="Did you get chest pain during the test?" value={exerciseAngina} onChange={setExerciseAngina} />
+            <Choices legend="Slope of the ST segment" options={slopeOptions} value={stSlope} onChange={setStSlope} columns={3} />
+            <Choices legend="Resting ECG" options={ecgOptions} value={restingEcg} onChange={setRestingEcg} columns={3} />
+          </div>
+        )}
       </div>
-    </div>
+    </ToolForm>
   );
 };

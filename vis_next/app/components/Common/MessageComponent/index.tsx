@@ -1,5 +1,9 @@
 import React from 'react';
-import { Bot, User, Image as ImageIcon } from 'lucide-react';
+import ReactMarkdown, { Components } from 'react-markdown';
+import Image from 'next/image';
+import { Phone } from 'lucide-react';
+import { AnalysisCard } from '@/app/chat/_components/AnalysisCard';
+import { mentionsEmergency, type Analysis } from '@/app/chat/_components/analysis';
 
 export interface MessageData {
   id: string;
@@ -9,11 +13,18 @@ export interface MessageData {
   isThinking?: boolean;
   imageUrl?: string;
   messageType?: "text" | "image" | "text_with_image";
+  // What the assistant is doing while the reply is on its way
+  status?: string;
+  analysis?: Analysis;
 }
 
 interface MessageComponentProps {
   message: MessageData;
 }
+
+const markdownComponents: Components = {
+  a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+};
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.tiff'];
 
@@ -46,7 +57,6 @@ function isImageUrl(value: string) {
 
 const MessageComponent: React.FC<MessageComponentProps> = ({ message }) => {
   const isUser = message.role === "user";
-  const isAssistant = message.role === "assistant";
 
   const contentTrimmed = message.content ? message.content.trim() : '';
   const contentIsImageUrl = isImageUrl(contentTrimmed);
@@ -57,93 +67,67 @@ const MessageComponent: React.FC<MessageComponentProps> = ({ message }) => {
   const hasImage = !!computedImageUrl;
   const hasText = !!contentTrimmed && !contentIsImageUrl;
 
-  let actualMessageType = message.messageType;
-  if (!actualMessageType) {
-    if (hasImage && hasText) {
-      actualMessageType = "text_with_image";
-    } else if (hasImage) {
-      actualMessageType = "image";
-    } else {
-      actualMessageType = "text";
-    }
-  }
+  const thinking = (
+    <div className="flex items-center gap-2 py-1.5">
+      <div className="flex gap-1">
+        <span className="size-1.5 animate-bounce rounded-full bg-primary" />
+        <span className="size-1.5 animate-bounce rounded-full bg-primary [animation-delay:0.1s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-primary [animation-delay:0.2s]" />
+      </div>
+      <span className="text-sm text-muted-foreground">{message.status || "Jivika is thinking"}...</span>
+    </div>
+  );
 
-  const getMessageIcon = () => {
-    if (isAssistant) {
-      return actualMessageType === "image" || actualMessageType === "text_with_image" 
-        ? <ImageIcon className="w-4 h-4 text-foreground" />
-        : <Bot className="w-4 h-4 text-foreground" />;
-    } else {
-      return actualMessageType === "image" || actualMessageType === "text_with_image"
-        ? <ImageIcon className="w-4 h-4 text-foreground" />
-        : <User className="w-4 h-4 text-foreground" />;
-    }
-  };
-  const getAvatarBgColor = () => {
-    if (isAssistant) {
-      return actualMessageType === "image" || actualMessageType === "text_with_image"
-        ? "bg-foreground/20"
-        : "bg-foreground/10";
-    } else {
-      return "bg-foreground/10";
-    }
-  };
+  const image = hasImage && (
+    <img
+      src={computedImageUrl}
+      alt="Shared image"
+      className="max-h-72 max-w-full rounded-xl object-cover"
+      onError={(e) => {
+        (e.target as HTMLImageElement).style.display = "none";
+      }}
+    />
+  );
 
-  return (
-    <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
-      {isAssistant && (
-        <div className={`shrink-0 w-8 h-8 rounded-full ${getAvatarBgColor()} flex items-center justify-center`}>
-          {getMessageIcon()}
+  if (isUser) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <div className="max-w-[85%] space-y-2 rounded-2xl rounded-br-md bg-brand-tint px-4 py-3 text-foreground">
+          {image}
+          {hasText && <p className="whitespace-pre-wrap text-sm leading-relaxed md:text-base">{message.content}</p>}
         </div>
-      )}
-      
-      <div
-        className={`max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl ${
-          isUser
-            ? "bg-accent text-foreground"
-            : "bg-card border border-border text-card-foreground"
-        }`}
-      >
-        {message.isThinking ? (
-          <div className="flex items-center gap-2">
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-accent rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-            </div>
-            <span className="text-sm text-foreground-muted">JIVIKA is thinking...</span>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {hasImage && (
-              <div className="rounded-lg overflow-hidden">
-                <img
-                  src={computedImageUrl}
-                  alt="Shared image"
-                  className="max-w-full h-auto rounded-lg shadow-sm"
-                  style={{ maxHeight: '300px', objectFit: 'cover' }}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-          
-            {hasText && (
-              <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">
-                {message.content}
-              </p>
-            )}
-          </div>
+        {hasText && mentionsEmergency(message.content) && (
+          <p role="alert" className="flex max-w-[85%] items-center gap-2.5 rounded-xl bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+            <Phone size={15} className="shrink-0" />
+            <span>
+              If this is an emergency, call <a href="tel:112" className="font-semibold underline">112</a> now. Don&apos;t wait for a reply here.
+            </span>
+          </p>
         )}
       </div>
+    );
+  }
 
-      {isUser && (
-        <div className={`shrink-0 w-8 h-8 rounded-full ${getAvatarBgColor()} flex items-center justify-center`}>
-          {getMessageIcon()}
-        </div>
-      )}
+  const showCard = message.analysis?.supported;
+
+  return (
+    <div className="flex gap-3">
+      <Image src="/images/logo.png" alt="" width={28} height={28} className="mt-0.5 size-7 shrink-0 rounded-full" />
+      <div className="min-w-0 flex-1 space-y-3">
+        {showCard && <AnalysisCard analysis={message.analysis!} />}
+        {message.isThinking ? (
+          thinking
+        ) : (
+          <>
+            {image}
+            {hasText && (
+              <div className="notes text-sm md:text-base">
+                <ReactMarkdown components={markdownComponents}>{message.content}</ReactMarkdown>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

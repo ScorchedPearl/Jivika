@@ -1,297 +1,105 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
+import { useEffect, useRef } from 'react';
+import type { LayerGroup, Map as LeafletMap } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { LocateFixed } from 'lucide-react';
 import { useMap } from '@/app/context/MapContext';
-import { motion } from 'framer-motion';
-import { RefreshCw, MapPin } from 'lucide-react';
 
-const containerStyle = {
-  width: '100%',
-  height: '600px',
-  borderRadius: '16px',
-};
+// Shown until the user's location is known
+const INDIA_CENTER: [number, number] = [22.5, 79];
 
-const defaultCenter = { lat: 40.7128, lng: -74.006 };
-
-const mapOptions: Omit<google.maps.MapOptions, 'styles'> = {
-  streetViewControl: false,
-  mapTypeControl: false,
-  fullscreenControl: true,
-  zoomControl: true,
-  disableDoubleClickZoom: false,
-};
-
-function safeGetComputedStyle(): CSSStyleDeclaration | null {
-  if (typeof window === 'undefined' || !document.documentElement) return null;
-  return getComputedStyle(document.documentElement);
-}
-
-function resolveThemeName(): string {
-  if (typeof window === 'undefined' || !document.documentElement) return 'light';
-  return document.documentElement.className || 'light';
-}
-
-function createThemeColors(rootStyles: CSSStyleDeclaration, _themeName: string) {
-  return {
-    accent: rootStyles.getPropertyValue('--color-primary').trim(),
-    accentHover: rootStyles.getPropertyValue('--color-primary').trim(),
-    background: rootStyles.getPropertyValue('--color-background').trim() ,
-  };
-}
-
-function createMapStyles(rootStyles: CSSStyleDeclaration, _themeName: string) {
-  const backgroundColor = rootStyles.getPropertyValue('--color-background-secondary').trim();
-  const foregroundColor = rootStyles.getPropertyValue('--color-foreground-muted').trim();
-  const accentColor = rootStyles.getPropertyValue('--color-primary').trim();
-  const borderColor = rootStyles.getPropertyValue('--color-border').trim();
-  const backgroundPrimary = rootStyles.getPropertyValue('--color-background').trim();
-
-  return [
-    { elementType: 'geometry', stylers: [{ color: backgroundColor }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: backgroundPrimary }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: foregroundColor }] },
-    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: borderColor }] },
-    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: foregroundColor }] },
-    { featureType: 'water', stylers: [{ color: accentColor }] },
-    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: borderColor }] },
-    { featureType: 'landscape', stylers: [{ color: backgroundColor }] },
-  ];
-}
+// OpenStreetMap tiles, so the map needs no API key
+const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 export function MapDisplay() {
-  const { isLoaded, onLoad, onUnmount, userLocation, places, selectedPlace, selectPlace } = useMap();
-
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const lastStylesRef = useRef<string | null>(null);
-  const observerRef = useRef<MutationObserver | null>(null);
-  const debounceRef = useRef<number | null>(null);
-
-  const [themeColors, setThemeColors] = useState(() => {
-    const rs = safeGetComputedStyle();
-    const tn = resolveThemeName();
-    return createThemeColors(rs as any, tn);
-  });
-
-  const [mapStyles, setMapStyles] = useState(() => {
-    const rs = safeGetComputedStyle();
-    const tn = resolveThemeName();
-    return createMapStyles(rs as any, tn);
-  });
-
-  const userOuterIcon = useMemo(() => {
-    return userLocation
-      ? {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: themeColors.accent,
-          fillOpacity: 0.15,
-          strokeColor: themeColors.accent,
-          strokeWeight: 1,
-          strokeOpacity: 0.3,
-          scale: 20,
-        }
-      : undefined;
-  }, [themeColors, userLocation]);
-
-  const userInnerIcon = useMemo(() => {
-    return userLocation
-      ? {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: themeColors.accent,
-          fillOpacity: 1,
-          strokeColor: themeColors.background,
-          strokeWeight: 3,
-          scale: 8,
-        }
-      : undefined;
-  }, [themeColors, userLocation]);
-
+  const { map, onLoad, onUnmount, userLocation, places, selectedPlace, selectPlace } = useMap();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<LayerGroup | null>(null);
 
   useEffect(() => {
-    if (!map) return;
-    const serialized = JSON.stringify(mapStyles);
-    if (serialized === lastStylesRef.current) return;
+    let instance: LeafletMap | null = null;
+    let cancelled = false;
 
-    try {
-      map.setOptions({ styles: mapStyles });
-      lastStylesRef.current = serialized;
-    } catch (e) {
-      console.warn('Failed to set map styles:', e);
-    }
-  }, [map, mapStyles]);
-
-  const handleMapLoad = (mapInstance: google.maps.Map) => {
-    setMap(mapInstance);
-    onLoad(mapInstance);
-  };
-
-  const handleMapUnmount = () => {
-    setMap(null);
-    onUnmount();
-  };
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (!root) return;
-
-    const applyThemeChanges = () => {
-      const rs = safeGetComputedStyle();
-      const tn = resolveThemeName();
-      const newThemeColors = createThemeColors(rs as any, tn);
-      const newMapStyles = createMapStyles(rs as any, tn);
-
-      const colorsChanged = JSON.stringify(newThemeColors) !== JSON.stringify(themeColors);
-      const stylesChanged = JSON.stringify(newMapStyles) !== JSON.stringify(mapStyles);
-
-      if (colorsChanged) setThemeColors(newThemeColors);
-      if (stylesChanged) setMapStyles(newMapStyles);
-    };
-    applyThemeChanges();
-
-    const onMutations = () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(() => applyThemeChanges(), 100);
-    };
-
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.type === 'attributes' && m.attributeName === 'class') {
-          onMutations();
-          break;
-        }
-      }
+    // Leaflet needs the browser's window, so it is loaded after the page renders
+    import('leaflet').then(({ default: L }) => {
+      if (cancelled || !containerRef.current) return;
+      instance = L.map(containerRef.current, { zoomControl: true }).setView(INDIA_CENTER, 5);
+      L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(instance);
+      markersRef.current = L.layerGroup().addTo(instance);
+      onLoad(instance);
     });
 
-    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
-    observerRef.current = observer;
-
     return () => {
-      observer.disconnect();
-      observerRef.current = null;
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      cancelled = true;
+      markersRef.current = null;
+      onUnmount();
+      instance?.remove();
     };
   }, []);
 
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center h-[600px] bg-background-secondary rounded-2xl border border-border animate-pulse">
-        <div className="text-foreground-muted text-lg">Loading Map...</div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const markers = markersRef.current;
+    if (!map || !markers) return;
+    let cancelled = false;
+
+    import('leaflet').then(({ default: L }) => {
+      if (cancelled) return;
+      markers.clearLayers();
+
+      if (userLocation) {
+        L.circleMarker(userLocation, { radius: 16, weight: 1, className: 'map-pin-halo' }).addTo(markers);
+        L.circleMarker(userLocation, { radius: 6, weight: 3, className: 'map-pin-you' })
+          .bindTooltip('You are here')
+          .addTo(markers);
+      }
+
+      places.forEach((place) => {
+        const selected = selectedPlace?.place_id === place.place_id;
+        const marker = L.circleMarker(place.geometry.location, {
+          radius: selected ? 11 : 7,
+          weight: 2,
+          className: selected ? 'map-pin map-pin-selected' : 'map-pin',
+        })
+          .bindTooltip(place.name)
+          .on('click', () => selectPlace(place))
+          .addTo(markers);
+
+        if (selected) {
+          // Built as elements, not HTML, because the names come from OpenStreetMap
+          const popup = document.createElement('div');
+          const name = document.createElement('strong');
+          name.textContent = place.name;
+          const address = document.createElement('p');
+          address.textContent = place.vicinity;
+          const link = document.createElement('a');
+          link.href = `https://www.openstreetmap.org/directions?to=${place.geometry.location.lat},${place.geometry.location.lng}`;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'Get directions';
+          popup.append(name, address, link);
+          marker.bindPopup(popup).openPopup();
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [map, places, userLocation, selectedPlace]);
 
   return (
-    <div className="relative">
-      <div className="absolute z-20 top-4 right-4 flex flex-col gap-2">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => map && userLocation && map.panTo(userLocation)}
-          className="p-3 rounded-full bg-background/70 backdrop-blur-lg border border-border shadow-md hover:bg-background-secondary transition"
-          title="Recenter"
-        >
-          <RefreshCw size={18} className="text-foreground" />
-        </motion.button>
-      </div>
-
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={userLocation || defaultCenter}
-        zoom={14}
-        onLoad={handleMapLoad}
-        onUnmount={handleMapUnmount}
-        options={{
-          ...mapOptions,
-          styles: mapStyles,
-        }}
+    <div className="relative z-0 h-full min-h-64">
+      <button
+        type="button"
+        onClick={() => map && userLocation && map.setView(userLocation, 14)}
+        aria-label="Recenter map"
+        className="absolute top-4 right-4 z-[1000] rounded-full border border-border bg-background/90 p-2.5 text-foreground shadow-md backdrop-blur transition hover:bg-background"
       >
-
-  {userLocation && (
-    <>
-      <MarkerF
-        position={userLocation}
-        icon={userOuterIcon as google.maps.Symbol}
-      />
-      <MarkerF
-        position={userLocation}
-        title="Your Location"
-        icon={userInnerIcon as google.maps.Symbol}
-      />
-    </>
-  )}
-
-  {places.map((place: any) => {
-    const key =
-      place.place_id ||
-      `${place.geometry.location.lat}-${place.geometry.location.lng}`;
-
-    return (
-      <motion.div
-        key={key}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      >
-        <MarkerF
-          position={place.geometry.location}
-          title={place.name}
-          onClick={() => selectPlace(place)}
-          icon={{
-            path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5 14.5 7.62 14.5 9 13.38 11.5 12 11.5z",
-            fillColor: themeColors.accent,
-            fillOpacity: 0.9,
-            strokeColor: themeColors.background,
-            strokeWeight: 2,
-            scale: 1.8,
-          } as unknown as google.maps.Icon}
-        />
-      </motion.div>
-    );
-  })}
-
-  {selectedPlace && (
-  <InfoWindowF
-    position={selectedPlace.geometry.location}
-    onCloseClick={() => selectPlace(null)}
-  >
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="p-4 bg-background/80 backdrop-blur-lg border border-border/50 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] min-w-[220px] max-w-[260px]"
-    >
-      <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 bg-primary/10 rounded-full">
-          <MapPin size={18} className="text-primary" />
-        </div>
-        <h4 className="text-sm font-semibold text-foreground leading-tight">
-          {selectedPlace.name}
-        </h4>
-      </div>
-
-      {selectedPlace.vicinity && (
-        <p className="text-xs text-foreground mb-3">
-          {selectedPlace.vicinity}
-        </p>
-      )}
-
-      <a
-        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-          selectedPlace.name
-        )}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs font-medium text-primary hover:underline"
-      >
-        Open in Google Maps
-      </a>
-    </motion.div>
-  </InfoWindowF>
-)}
-</GoogleMap>
-
+        <LocateFixed size={16} />
+      </button>
+      <div ref={containerRef} className="h-full min-h-64 w-full" />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface ConfirmModalProps {
@@ -43,7 +44,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     <AnimatePresence>
       {open && (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-md p-6 rounded-2xl shadow-2xl bg-background/95 backdrop-blur-md border border-border">
+          <DialogContent className="sm:max-w-md p-6 bg-card">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -51,7 +52,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
               <DialogHeader>
-                <DialogTitle className="text-lg font-semibold text-foreground">
+                <DialogTitle className="font-serif text-2xl font-normal text-foreground">
                   {title}
                 </DialogTitle>
                 {description && (
@@ -62,11 +63,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               </DialogHeader>
 
               {showInput && (
-                <input
+                <Input
                   type="text"
                   value={inputValue}
                   onChange={(e) => onInputChange?.(e.target.value)}
-                  className="mt-4 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  className="mt-4"
                   placeholder="Enter new name"
                 />
               )}
@@ -83,7 +84,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 <Button
                   onClick={onConfirm}
                   disabled={loading}
-                  className="min-w-[90px] bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  className="min-w-[90px]"
                 >
                   {loading ? "Saving..." : confirmLabel}
                 </Button>

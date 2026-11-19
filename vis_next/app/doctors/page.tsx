@@ -1,24 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { SkeletonLoader } from "./_components/skeleton-loader";
-import { ModernButton } from "./_components/mordern-button";
-import { GlassCard } from "./_components/glass-card";
-import ExploreHeader from "../explore/_components/explore_Header";
+import { ArrowRight, Hospital, Search } from "lucide-react";
 import axios from "axios";
+import { Container } from "../components/Site/Container";
+import { EmptyState } from "../components/Site/EmptyState";
+import { PageHero } from "../components/Site/PageHero";
+import { SiteShell } from "../components/Site/SiteShell";
 
 interface Doctor {
   id: string;
   name: string;
   hospital: string;
   role: string;
+  profilePhoto?: string;
+}
+
+function initials(name: string) {
+  return name
+    .replace(/^Dr\.?\s+/i, "")
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const loadDoctors = async () => {
@@ -38,91 +50,79 @@ export default function DoctorsPage() {
     loadDoctors();
   }, []);
 
-  const navLinks = (
-    <nav className="flex items-center gap-4 ml-4">
-      <Link href="/explore" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Explore</Link>
-      <Link href="/doctors" className="text-sm font-medium text-primary hover:text-primary transition-colors">Doctors</Link>
-      <Link href="/news" className="text-sm font-medium text-foreground underline-offset-4 hover:underline">News</Link>
-      <Link href="/chat" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Chat</Link>
-    </nav>
-  );
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <ExploreHeader
-          title="My Doctors"
-          subtitle="Latest Updates"
-          logoSrc="/images/logo.png"
-          ctaLabel="Chat"
-          ctaHref="/chat"
-          rightSlot={navLinks}
-        />
-        <main className="p-6 max-w-7xl mx-auto">
-          <div className="mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent mb-3">
-              Our Doctors
-            </h1>
-            <p className="text-muted-foreground text-lg">Loading available doctors...</p>
-          </div>
-          <SkeletonLoader count={6} />
-        </main>
-      </div>
-    );
-  }
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return doctors.filter((d) => `${d.name} ${d.hospital}`.toLowerCase().includes(query));
+  }, [doctors, search]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <ExploreHeader
-        title="Our Doctors"
-        subtitle="Book your preferred specialist"
-        logoSrc="/images/logo.png"
-        ctaLabel="Chat"
-        ctaHref="/chat"
-        rightSlot={navLinks}
-      />
-
-      <main className="p-4 md:p-6 max-w-7xl mx-auto">
-        <div className="mb-8 md:mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent mb-3">
-            Our Doctors
-          </h1>
-          <p className="text-muted-foreground text-lg">Select a doctor to book an appointment</p>
+    <SiteShell>
+      <PageHero
+        eyebrow="Doctors"
+        title={
+          <>
+            Talk to someone who can <em className="text-gradient pr-1 font-medium">help</em>
+          </>
+        }
+        intro="Choose a doctor and request an appointment. Your request and its status appear on your profile."
+      >
+        <div className="relative mt-7 max-w-md">
+          <Search size={16} className="absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or hospital"
+            aria-label="Search doctors"
+            className="w-full rounded-full border border-border bg-card/70 py-2.5 pr-4 pl-10 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--brand-ink)] focus:outline-none focus:ring-[3px] focus:ring-[var(--brand-tint)]"
+          />
         </div>
+      </PageHero>
 
-        {doctors.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No doctors available</p>
+      <Container className="pt-4">
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-card/60" />
+            ))}
           </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title={doctors.length === 0 ? "No doctors yet" : "No matches"}
+            body={doctors.length === 0 ? "Doctors appear here once they join Jivika." : "Try a different name or hospital."}
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {doctors.map((doctor) => (
-              <GlassCard key={doctor.id} className="flex flex-col justify-between hover:scale-105 transition-transform">
-                <div>
-                  <h2 className="text-xl font-bold">{doctor.name}</h2>
-                  <p className="text-sm text-muted-foreground mt-1">{doctor.hospital}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((doctor) => (
+              <Link
+                key={doctor.id}
+                href={`/doctors/${doctor.id}`}
+                className="group flex flex-col rounded-2xl border border-border bg-card/60 p-6 transition hover:-translate-y-0.5 hover:border-[var(--brand-line)] hover:bg-card"
+              >
+                <div className="flex items-center gap-4">
+                  {doctor.profilePhoto ? (
+                    <img src={doctor.profilePhoto} alt="" className="size-12 rounded-xl object-cover" />
+                  ) : (
+                    <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-tint font-serif text-lg text-brand">
+                      {initials(doctor.name)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <h2 className="truncate font-serif text-xl text-foreground group-hover:text-brand">{doctor.name}</h2>
+                    <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
+                      <Hospital size={13} className="shrink-0" />
+                      {doctor.hospital || "Independent"}
+                    </p>
+                  </div>
                 </div>
-                <div className="my-4 flex gap-2">
-                  <Badge className="bg-primary/20 text-primary">{doctor.role || "Doctor"}</Badge>
-                </div>
-                <Link href={`/doctors/${doctor.id}`} className="w-full">
-                  <ModernButton variant="primary" className="w-full">Book Appointment</ModernButton>
-                </Link>
-              </GlassCard>
+                <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-brand">
+                  Book appointment <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
+                </span>
+              </Link>
             ))}
           </div>
         )}
-      </main>
-
-      <footer className="mt-16 border-t border-border bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-sm text-foreground-muted">© 2025 Jivika Health. All rights reserved.</span>
-          <div className="flex items-center gap-4 text-sm">
-            <Link href="/chat" className="hover:text-primary transition-colors">Chat</Link>
-            <Link href="/explore" className="hover:text-primary transition-colors">Explore</Link>
-          </div>
-        </div>
-      </footer>
-    </div>
+      </Container>
+    </SiteShell>
   );
 }

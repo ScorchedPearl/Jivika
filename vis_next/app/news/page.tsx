@@ -1,9 +1,12 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import ExploreHeader from "../explore/_components/explore_Header";
-import Link from "next/link";
-import { FeaturedCarousel } from "./_components/featurecourosal";
-import { ModernNewsCard } from "./_components/modernnewscard";
+import { ArrowUpRight, Clock } from "lucide-react";
+import { Container } from "../components/Site/Container";
+import { EmptyState } from "../components/Site/EmptyState";
+import { PageHero } from "../components/Site/PageHero";
+import { SiteShell } from "../components/Site/SiteShell";
+import { cn } from "@/lib/utils";
 
 interface NewsArticle {
   title: string;
@@ -12,41 +15,72 @@ interface NewsArticle {
   timeAgo: string;
   url?: string;
   source?: string;
-  trending?: boolean;
+  originalImage?: string;
 }
 
-const Index = () => {
-  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+function Meta({ article }: { article: NewsArticle }) {
+  return (
+    <p className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+      <Clock size={12} />
+      {article.timeAgo}
+      {article.source && <span className="truncate">· {article.source}</span>}
+    </p>
+  );
+}
+
+function NewsCard({ article, lead = false }: { article: NewsArticle; lead?: boolean }) {
+  return (
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-2xl border border-border bg-card/60 transition hover:-translate-y-0.5 hover:border-[var(--brand-line)] hover:bg-card",
+        lead && "lg:col-span-3 lg:flex-row",
+      )}
+    >
+      {article.originalImage && (
+        <img
+          src={article.originalImage}
+          alt=""
+          loading="lazy"
+          className={cn("aspect-[16/9] w-full border-b border-border object-cover", lead && "lg:w-1/2 lg:border-r lg:border-b-0")}
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
+          }}
+        />
+      )}
+      <div className={cn("flex flex-1 flex-col p-6", lead && "lg:justify-center lg:p-10")}>
+        <p className="font-mono text-xs tracking-wider text-brand uppercase">{article.category}</p>
+        <h2 className={cn("mt-3 font-serif leading-snug text-foreground group-hover:text-brand", lead ? "text-2xl sm:text-3xl" : "text-xl")}>
+          {article.title}
+        </h2>
+        <p className={cn("mt-2 text-sm leading-relaxed text-muted-foreground", lead ? "line-clamp-3 sm:text-base" : "line-clamp-2")}>
+          {article.excerpt}
+        </p>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+          <Meta article={article} />
+          <ArrowUpRight size={15} className="shrink-0 text-muted-foreground transition group-hover:text-brand" />
+        </div>
+      </div>
+    </a>
+  );
+}
+
+export default function NewsPage() {
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const staticImages = [
-    "/images/doc1.jpeg",
-    "/images/doc2.cms",
-    "/images/doc3.webp",
-  ];
 
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        setLoading(true);
-        const response = await fetch('/api/news?q=health&max=13&country=in&lang=en');
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch news');
-        }
+        const response = await fetch("/api/news?q=health&max=13&country=in&lang=en");
+        if (!response.ok) throw new Error("Failed to fetch news");
 
         const data = await response.json();
-        
-        if (data.success && data.articles) {
-          setNewsArticles(data.articles);
-        } else {
-          throw new Error('Invalid response format');
-        }
+        if (data.success && data.articles) setArticles(data.articles);
       } catch (err) {
-        console.error('Error fetching news:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load news');
-        // Fallback to dummy data
-        setNewsArticles(getFallbackNews());
+        console.error("Error fetching news:", err);
       } finally {
         setLoading(false);
       }
@@ -55,168 +89,36 @@ const Index = () => {
     fetchNews();
   }, []);
 
-  // Fallback news data
-  const getFallbackNews = (): NewsArticle[] => [
-    {
-      title: "Tech Giants Announce Major Privacy Updates",
-      excerpt: "Leading technology companies roll out comprehensive privacy features giving users unprecedented control over their personal data and digital footprint.",
-      category: "Technology",
-      timeAgo: "6 hours ago",
-      trending: true,
-    },
-    {
-      title: "Space Exploration Enters New Era of Discovery",
-      excerpt: "International space agencies collaborate on ambitious missions to explore distant planets and unlock the mysteries of our cosmic neighborhood.",
-      category: "Science",
-      timeAgo: "8 hours ago",
-      trending: true,
-    },
-    {
-      title: "Healthcare Innovation Leads to Medical Breakthroughs",
-      excerpt: "New medical technologies and treatment methods show promising results in clinical trials across multiple disease categories and patient demographics.",
-      category: "Health",
-      timeAgo: "12 hours ago",
-    },
-  ];
-
-  // Get carousel items (first 3 articles)
-  const carouselItems = newsArticles.slice(0, 3).map((article, index) => ({
-    ...article,
-    image: staticImages[index % staticImages.length],
-  }));
-
-  // Get remaining articles for the grid
-  const gridArticles = newsArticles.slice(3);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <ExploreHeader
-          title="Jivika News"
-          subtitle="Latest Updates"
-          logoSrc="/images/logo.png"
-          ctaLabel="Chat"
-          ctaHref="/chat"
-          rightSlot={
-            <nav className="flex items-center gap-4 ml-4">
-            <Link
-              href="/explore"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-            >
-              Explore
-            </Link>
-            <Link
-              href="/appointments"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-            >
-              Doctors
-            </Link>
-            
-            <Link
-              href="/news"
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              News
-            </Link>
-            <Link
-              href="/chat"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-            >
-              Chat
-            </Link>
-           
-          </nav>
-          }
-        />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <ExploreHeader
-        title="Jivika News"
-        subtitle="Latest Updates"
-        logoSrc="/images/logo.png"
-        ctaLabel="Chat"
-        ctaHref="/chat"
-        rightSlot={
-          <nav className="flex items-center gap-4 ml-4">
-            <Link
-              href="/explore"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-            >
-              Explore
-            </Link>
-            <Link
-              href="/appointments"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-            >
-              Doctors
-            </Link>
-            
-            <Link
-              href="/news"
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              News
-            </Link>
-            <Link
-              href="/chat"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-            >
-              Chat
-            </Link>
-           
-          </nav>
+    <SiteShell>
+      <PageHero
+        eyebrow="Health news"
+        title={
+          <>
+            What&apos;s happening in <em className="text-gradient pr-1 font-medium">health</em>
+          </>
         }
+        intro="The latest health stories from news sources across India."
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-
-        <section className="mb-12">
-          {carouselItems.length > 0 && (
-            <FeaturedCarousel
-              items={carouselItems.map((item) => ({
-                ...item,
-                image: (item.image as any).src ?? (item.image as unknown as string),
-              }))}
-            />
-          )}
-        </section>
-
-        <section>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="h-1 w-12 bg-linear-to-r from-primary to-primary/80 rounded-full" />
-            <h2 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">
-              Latest Health News
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {gridArticles.map((news, index) => (
-              <ModernNewsCard key={index} {...news} delay={60 * index} />
+      <Container className="pt-4">
+        {loading ? (
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="h-72 animate-pulse rounded-2xl border border-border bg-card/60 lg:col-span-3" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-56 animate-pulse rounded-2xl border border-border bg-card/60" />
             ))}
           </div>
-        </section>
-      </main>
-
-      <footer className="mt-16 border-t border-border bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-sm text-foreground-muted">© 2025 Jivika News. All rights reserved.</span>
-          <div className="flex items-center gap-4 text-sm">
-            <Link href="/chat" className="hover:text-primary transition-colors">Chat</Link>
-            <Link href="/explore" className="hover:text-primary transition-colors">Explore</Link>
+        ) : articles.length === 0 ? (
+          <EmptyState title="No stories right now" body="The news feed isn't available at the moment. Please check back soon." />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {articles.map((article, index) => (
+              <NewsCard key={article.url ?? index} article={article} lead={index === 0} />
+            ))}
           </div>
-        </div>
-      </footer>
-    </div>
+        )}
+      </Container>
+    </SiteShell>
   );
-};
-
-export default Index;
+}

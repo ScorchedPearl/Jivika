@@ -110,7 +110,7 @@ def predict():
         cv2.imwrite(cam_image_path, cv2.cvtColor(cam_image_real, cv2.COLOR_RGB2BGR))
         file={
             "prediction": pred_label,
-            "cam_image_url": f"/static/lung_cam_{file.filename}"
+            "cam_image_url": f"/static/cam_{file.filename}"
         }
         print(file)
         return jsonify(file)

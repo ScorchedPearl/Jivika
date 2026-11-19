@@ -1,8 +1,6 @@
 'use client';
 
-import {
-  useJsApiLoader,
-} from '@react-google-maps/api';
+import type { Map as LeafletMap } from 'leaflet';
 import {
   useState,
   useCallback,
@@ -26,9 +24,8 @@ export interface Place {
 }
 
 interface MapContextType {
-  isLoaded: boolean;
-  map: google.maps.Map | null;
-  onLoad: (map: google.maps.Map) => void;
+  map: LeafletMap | null;
+  onLoad: (map: LeafletMap) => void;
   onUnmount: () => void;
   userLocation: { lat: number; lng: number } | null;
   places: Place[];
@@ -36,17 +33,13 @@ interface MapContextType {
   selectedPlace: Place | null;
   selectPlace: (place: Place | null) => void;
   panTo: (position: { lat: number; lng: number }) => void;
+  locate: () => void;
 }
 
 const MapContext = createContext<MapContextType | null>(null);
 
 export function MapProvider({ children }: { children: ReactNode }) {
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-  });
-
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [map, setMap] = useState<LeafletMap | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('Initializing map...');
@@ -55,8 +48,7 @@ export function MapProvider({ children }: { children: ReactNode }) {
   const panTo = useCallback(
     (position: { lat: number; lng: number }) => {
       if (map) {
-        map.panTo(position);
-        map.setZoom(14);
+        map.setView(position, 14);
       }
     },
     [map]
@@ -102,31 +94,37 @@ export function MapProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  useEffect(() => {
-    if (map && isLoaded) {
-      setStatus('Map loaded. Getting your location...');
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const pos = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            };
-            setUserLocation(pos);
-            panTo(pos);
-            fetchNearbyPlaces(pos.lat, pos.lng);
-          },
-          () => {
-            setStatus('Location access denied. Please enable it in your browser.');
-          }
-        );
-      } else {
-        setStatus('Geolocation not supported by your browser.');
-      }
+  // The hospital list comes from OpenStreetMap, so it works with or without a loaded map
+  const locate = useCallback(() => {
+    setStatus('Getting your location...');
+    if (!navigator.geolocation) {
+      setStatus('Your browser does not support location.');
+      return;
     }
-  }, [map, isLoaded, panTo]);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const pos = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setUserLocation(pos);
+        fetchNearbyPlaces(pos.lat, pos.lng);
+      },
+      () => {
+        setStatus('Allow location access to see hospitals near you.');
+      }
+    );
+  }, []);
 
-  const onLoad = useCallback((mapInstance: google.maps.Map) => {
+  useEffect(() => {
+    if (map && userLocation) panTo(userLocation);
+  }, [map, userLocation, panTo]);
+
+  useEffect(() => {
+    if (map && !userLocation) locate();
+  }, [map, userLocation, locate]);
+
+  const onLoad = useCallback((mapInstance: LeafletMap) => {
     setMap(mapInstance);
   }, []);
 
@@ -142,7 +140,6 @@ export function MapProvider({ children }: { children: ReactNode }) {
   };
 
   const value = {
-    isLoaded,
     map,
     onLoad,
     onUnmount,
@@ -152,6 +149,7 @@ export function MapProvider({ children }: { children: ReactNode }) {
     selectedPlace,
     selectPlace,
     panTo,
+    locate,
   };
 
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;

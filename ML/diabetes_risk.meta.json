@@ -1,0 +1,82 @@
+{
+  "features": [
+    "Age",
+    "Sex",
+    "BMI",
+    "HighBP",
+    "HighChol",
+    "GenHlth",
+    "PhysActivity",
+    "Smoker",
+    "HeartDiseaseorAttack",
+    "Stroke",
+    "DiffWalk"
+  ],
+  "calibration": {
+    "a": 0.942241296103533,
+    "b": -0.07822356552159744
+  },
+  "people": 253680,
+  "base_rate": 0.1393,
+  "metrics": {
+    "full": {
+      "auc": 0.8248,
+      "accuracy": 0.8659,
+      "sensitivity": 0.1597,
+      "specificity": 0.9802,
+      "brier": 0.0976,
+      "calibration": [
+        {
+          "predicted": 0.009,
+          "observed": 0.007
+        },
+        {
+          "predicted": 0.035,
+          "observed": 0.031
+        },
+        {
+          "predicted": 0.085,
+          "observed": 0.083
+        },
+        {
+          "predicted": 0.173,
+          "observed": 0.183
+        },
+        {
+          "predicted": 0.394,
+          "observed": 0.393
+        }
+      ]
+    },
+    "bp_and_cholesterol_unknown": {
+      "auc": 0.8092,
+      "accuracy": 0.864,
+      "sensitivity": 0.1267,
+      "specificity": 0.9833,
+      "brier": 0.1003,
+      "calibration": [
+        {
+          "predicted": 0.012,
+          "observed": 0.009
+        },
+        {
+          "predicted": 0.041,
+          "observed": 0.037
+        },
+        {
+          "predicted": 0.09,
+          "observed": 0.09
+        },
+        {
+          "predicted": 0.175,
+          "observed": 0.186
+        },
+        {
+          "predicted": 0.38,
+          "observed": 0.374
+        }
+      ]
+    }
+  },
+  "source": "CDC BRFSS 2015 health survey (UCI dataset 891): 253,680 US adults, self-reported."
+}

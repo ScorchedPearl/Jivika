@@ -11,7 +11,7 @@ export const setAuthToken = (token: string) => {
       'max-age=604800',
       'samesite=strict'
     ]
-    if (process.env.NODE_ENV === 'production') {
+    if (window.location.protocol === 'https:') {
       cookieOptions.push('secure')
     }
     
@@ -37,4 +37,14 @@ export const getAuthToken = (): string | null => {
 
 export const isAuthenticated = (): boolean => {
   return !!getAuthToken()
+}
+
+// A full page load, because Next's client cache can still hold the signed-out
+// redirect from a prefetch of the protected page
+export const enterApp = (redirect: string | null) => {
+  const token = getAuthToken()
+  if (token) setAuthToken(token) // the middleware reads the cookie, so keep it in step
+
+  const isLocalPath = !!redirect && redirect.startsWith('/') && !redirect.startsWith('//')
+  window.location.assign(isLocalPath ? redirect : '/chat')
 }

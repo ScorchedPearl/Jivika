@@ -1,0 +1,7 @@
+.venv
+__pycache__
+Notebooks
+.idea
+.DS_Store
+data
+training

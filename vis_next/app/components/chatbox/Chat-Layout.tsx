@@ -4,8 +4,6 @@ import React, { useState, useEffect } from "react"
 import { Sidebar } from "./Sidebar"
 
 export function ChatLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarWidth, setSidebarWidth] = useState(260)
-  const [isResizing, setIsResizing] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
 
@@ -16,63 +14,18 @@ export function ChatLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  const handleCollapseChange = (collapsed: boolean) => {
-    setIsCollapsed(collapsed)
-  }
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (isMobile || isCollapsed) return
-    e.preventDefault()
-    setIsResizing(true)
-  }
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing || isMobile || isCollapsed) return
-    const newWidth = e.clientX
-    if (newWidth > 180 && newWidth < 600) setSidebarWidth(newWidth)
-  }
-
-  const handleMouseUp = () => setIsResizing(false)
-
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-    } else {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [isResizing, isMobile, isCollapsed])
-
-  const currentSidebarWidth = isCollapsed ? 64 : sidebarWidth
-
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <div
-        style={{
-          width: isMobile ? "0px" : `${currentSidebarWidth}px`,
-        }}
-        className="relative shrink-0 border-r border-border bg-background hidden md:block"
+        style={{ width: isCollapsed ? 64 : 280 }}
+        className="relative hidden shrink-0 border-r border-border transition-[width] duration-200 md:block"
       >
-        <Sidebar isMobile={false} onCollapseChange={handleCollapseChange} />
-
-        {!isMobile && !isCollapsed && (
-          <div
-            onMouseDown={handleMouseDown}
-            className="absolute top-0 right-0 w-1 cursor-col-resize h-full bg-transparent hover:bg-muted transition-colors"
-          />
-        )}
+        <Sidebar isMobile={false} onCollapseChange={setIsCollapsed} />
       </div>
 
       {isMobile && <Sidebar isMobile={true} />}
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-background">
-        {children}
-      </main>
+      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
     </div>
   )
 }
