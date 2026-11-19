@@ -302,6 +302,31 @@ Every image model uses **ResNet-18** (ImageNet-pretrained, fine-tuned). Images a
 
 ---
 
+## 🔬 Insight Lab — Trustworthy-AI layer (`ML/insight_engine`, page `/lab`)
+
+Every prediction comes with evidence for **how much to trust it**:
+
+| Capability | Method |
+|---|---|
+| Uncertainty decomposition | 8× test-time augmentation (+ MC-dropout on the wound head) → total / aleatoric / epistemic entropy (BALD mutual information) |
+| Out-of-distribution guard | Class-conditional **Mahalanobis** distance on penultimate features when reference scans exist in `ML/reference/<brain\|lung\|wound>/` (≥20 images); otherwise a feature-norm junk filter calibrated on a synthetic outlier bank (reports "unverified", never "verified") |
+| Multi-explainer saliency | Grad-CAM, Grad-CAM++, LayerCAM and occlusion, plus a consensus map and an **explainer-agreement** score (mean IoU) |
+| Faithfulness test | Deletion curve: delete the most-salient pixels first vs. random pixels |
+| Adversarial robustness | PGD + binary search for the smallest L∞ perturbation that flips the diagnosis |
+| Counterfactual scans | Sparse (ISTA / L1 + TV) image edit that moves the model to the healthy / next-likeliest class, showing *what would have to change* |
+| Trust score & triage | Fuses the signals above; abstains on OOD inputs and routes low-trust results to human review |
+| Heart model XAI | **Exact Shapley values** (all 32 coalitions), ensemble disagreement (LR / RF / XGBoost), counterfactual recourse, what-if curves |
+
+```bash
+cd ML && python3.12 -m venv .venv && .venv/bin/pip install -r insight_engine/requirements.txt
+.venv/bin/uvicorn insight_engine.server:app --app-dir . --port 8100
+```
+Frontend reads `NEXT_PUBLIC_INSIGHT_ENGINE_URL` (default `http://localhost:8100`). Endpoints: `POST /v2/analyze` (multipart `file`, optional `modality`), `POST /v2/heart/explain` (JSON).
+
+> On macOS, PyTorch and XGBoost bundle clashing OpenMP runtimes, so the heart model runs in a separate torch-free worker process.
+
+---
+
 ## 🔄 Key Flows
 
 ### 1. Image diagnosis chat (end-to-end)

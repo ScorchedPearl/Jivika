@@ -3,3 +3,8 @@
 
 # Training datasets, downloaded by ML/training/train_risk_models.py
 ML/data/
+
+# Python virtualenvs
+ML/.venv/
+genai/.venv/
+__pycache__/

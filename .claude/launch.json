@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vis_next",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "vis_next", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "insight-engine",
+      "runtimeExecutable": "ML/.venv/bin/uvicorn",
+      "runtimeArgs": ["insight_engine.server:app", "--app-dir", "ML", "--port", "8100"],
+      "port": 8100,
+      "url": "http://localhost:8100"
+    }
+  ]
+}
